@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lexus Pro - Sistema de Vendas</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .active-tab { border-bottom: 3px solid #3b82f6; color: #3b82f6; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen pb-20">
+
+    <script>
+        const SUPABASE_URL = "https://ngnchrasfwytlsoqxbgd.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nbmNocmFzZnd5dGxzb3F4YmdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MjQ0MTQsImV4cCI6MjA5MzQwMDQxNH0.dQq9keo5iQ4DWxjASTAmsDlTqvFMdVj0XdZZRyr2q-4";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Estado Global
+        let produtos = [];
+        let clientes = [];
+        let carrinho = [];
+
+        // Inicialização
+        window.onload = async () => {
+            await carregarDados();
+            renderProdutos();
+            renderClientes();
+            renderPedidos();
+        };
+
+        async function carregarDados() {
+            // Carrega Produtos
+            const { data: p } = await supabase.from('produtos').select('*');
+            produtos = p || [];
+            // Carrega Clientes
+            const { data: c } = await supabase.from('clientes').select('*');
+            clientes = c || [];
+        }
+
+        // Funções de Venda
+        async function finalizarVenda() {
+            const clienteNome = document.getElementById('select-cliente').value;
+            const total = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
+            
+            if (carrinho.length === 0) return alert("Carrinho vazio!");
+
+            const { error } = await supabase.from('pedidos').insert([{
+                cliente_nome: clienteNome,
+                valor_total: total,
+                itens: carrinho,
+                status: 'pendente'
+            }]);
+
+            if (!error) {
+                alert("Venda realizada com sucesso!");
+                carrinho = [];
+                renderCarrinho();
+                renderPedidos();
+            }
+        }
+
+        // Cadastro de Cliente
+        async function salvarCliente(e) {
+            e.preventDefault();
+            const nome = document.getElementById('nome-cliente').value;
+            const { error } = await supabase.from('clientes').insert([{ nome: nome }]);
+            if (!error) {
+                document.getElementById('nome-cliente').value = '';
+                await carregarDados();
+                renderClientes();
+                alert("Cliente cadastrado!");
+            }
+        }
+
+        // Cadastro de Produto
+        async function salvarProduto(e) {
+            e.preventDefault();
+            const nome = document.getElementById('nome-prod').value;
+            const preco = parseFloat(document.getElementById('preco-prod').value);
+            const { error } = await supabase.from('produtos').insert([{ nome: nome, preco: preco }]);
+            if (!error) {
+                await carregarDados();
+                renderProdutos();
+                alert("Produto cadastrado!");
+            }
+        }
+    </script>
+
+    <header class="bg-blue-600 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="flex justify-between items-center max-w-4xl mx-auto">
+            <h1 class="text-xl font-bold italic">LEXUS PRO</h1>
+            <button onclick="carregarDados()" class="bg-blue-500 p-2 rounded-full hover:bg-blue-400">
+                <i class="fas fa-sync-alt text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <nav class="bg-white border-b sticky top-[64px] z-40">
+        <div class="flex max-w-4xl mx-auto">
+            <button onclick="switchTab('vendas')" id="btn-vendas" class="flex-1 py-4 font-semibold active-tab">VENDAS</button>
+            <button onclick="switchTab('clientes')" id="btn-clientes" class="flex-1 py-4 font-semibold">CLIENTES</button>
+            <button onclick="switchTab('estoque')" id="btn-estoque" class="flex-1 py-4 font-semibold">ESTOQUE</button>
+            <button onclick="switchTab('financeiro')" id="btn-financeiro" class="flex-1 py-4 font-semibold">PEDIDOS</button>
+        </div>
+    </nav>
+
+    <section id="tab-vendas" class="tab-content active p-4 max-w-4xl mx-auto">
+        <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
+            <label class="block text-sm font-bold mb-2">SELECIONAR CLIENTE</label>
+            <select id="select-cliente" class="w-full border p-3 rounded-lg bg-gray-50 mb-4"></select>
+            
+            <div id="lista-produtos-venda" class="grid grid-cols-2 gap-3">
+                </div>
+        </div>
+
+        <div class="bg-blue-50 p-4 rounded-xl border-2 border-blue-200">
+            <h3 class="font-bold mb-2">CARRINHO</h3>
+            <div id="carrinho-itens" class="mb-4"></div>
+            <button onclick="finalizarVenda()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold shadow-md hover:bg-green-700">
+                FINALIZAR VENDA
+            </button>
+        </div>
+    </section>
+
+    <section id="tab-clientes" class="tab-content p-4 max-w-4xl mx-auto">
+        <form onsubmit="salvarCliente(event)" class="bg-white p-4 rounded-xl mb-4">
+            <input id="nome-cliente" type="text" placeholder="Nome do Cliente" class="w-full border p-3 rounded-lg mb-2" required>
+            <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg">Cadastrar Cliente</button>
+        </form>
+        <div id="lista-clientes" class="bg-white rounded-xl shadow-sm"></div>
+    </section>
+
+    <section id="tab-estoque" class="tab-content p-4 max-w-4xl mx-auto">
+        <form onsubmit="salvarProduto(event)" class="bg-white p-4 rounded-xl mb-4">
+            <input id="nome-prod" type="text" placeholder="Nome do Produto" class="w-full border p-3 rounded-lg mb-2" required>
+            <input id="preco-prod" type="number" step="0.01" placeholder="Preço" class="w-full border p-3 rounded-lg mb-2" required>
+            <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg">Cadastrar Produto</button>
+        </form>
+        <div id="lista-produtos-estoque" class="bg-white rounded-xl shadow-sm"></div>
+    </section>
+
+    <script>
+        // Funções de UI (Renderização)
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById(`btn-${tab}`).classList.add('active-tab');
+        }
+
+        function renderProdutos() {
+            const containerVenda = document.getElementById('lista-produtos-venda');
+            containerVenda.innerHTML = produtos.map(p => `
+                <div class="border p-3 rounded-lg bg-white shadow-sm">
+                    <p class="font-bold">${p.nome}</p>
+                    <p class="text-blue-600">R$ ${parseFloat(p.preco).toFixed(2)}</p>
+                    <button onclick="addCarrinho('${p.id}')" class="mt-2 w-full bg-blue-100 text-blue-700 py-1 rounded">+ Add</button>
+                </div>
+            `).join('');
+        }
+
+        function renderClientes() {
+            const select = document.getElementById('select-cliente');
+            const lista = document.getElementById('lista-clientes');
+            select.innerHTML = clientes.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+            lista.innerHTML = clientes.map(c => `<div class="p-4 border-b">${c.nome}</div>`).join('');
+        }
+
+        function addCarrinho(id) {
+            const prod = produtos.find(p => p.id === id);
+            carrinho.push({...prod, quantidade: 1});
+            renderCarrinho();
+        }
+
+        function renderCarrinho() {
+            const div = document.getElementById('carrinho-itens');
+            div.innerHTML = carrinho.map(i => `<p>${i.nome} - 1x R$ ${parseFloat(i.preco).toFixed(2)}</p>`).join('');
+        }
+    </script>
+
+</body>
+</html>
