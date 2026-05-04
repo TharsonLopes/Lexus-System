@@ -1,187 +1,122 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lexus Pro - Sistema de Vendas</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .active-tab { border-bottom: 3px solid #3b82f6; color: #3b82f6; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Lexus Representações</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg0:#161b1e;--bg1:#1e2428;--bg2:#242b30;--bg3:#2c343a;--bg4:#323d44;
+  --b1:#2e373e;--b2:#3d484f;--b3:#4a5760;
+  --cr:#e8e4d4;--cr2:#ccc7b4;--cr3:#9a9485;--cr4:#63594e;
+  --go:#c9a84c;--go2:#e0bc65;--go4:rgba(201,168,76,.12);
+  --gn:#4fb87a;--gn2:rgba(79,184,122,.1);
+  --rd:#c96060;--rd2:rgba(201,96,96,.1);
+  --sw:258px;
+  --ff:'DM Sans',system-ui,sans-serif;
+  --fd:'Cormorant Garamond',Georgia,serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg0);color:var(--cr);font-family:var(--ff);overflow-x:hidden;height:100vh;display:flex}
+.sidebar{width:var(--sw);background:var(--bg1);height:100vh;position:fixed;left:0;top:0;border-right:1px solid var(--b1);z-index:100}
+.sidebar-logo{padding:40px 30px;text-align:center}
+.sidebar-logo h1{font-family:var(--fd);font-size:32px;letter-spacing:3px;color:var(--go);text-transform:uppercase}
+.nav-list{list-style:none;padding:0 15px}
+.nav-item{padding:14px 20px;margin-bottom:6px;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:15px;color:var(--cr3);transition:all .2s;font-weight:500}
+.nav-item:hover{background:var(--bg2);color:var(--go)}
+.nav-item.active{background:var(--go);color:var(--bg0);box-shadow:0 10px 20px rgba(201,168,76,.2)}
+.main{margin-left:var(--sw);padding:40px;flex:1;min-height:100vh}
+.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px}
+.top-bar h2{font-family:var(--fd);font-size:32px;font-weight:600}
+.card{background:var(--bg1);border-radius:24px;padding:30px;border:1px solid var(--b1);box-shadow:0 15px 35px rgba(0,0,0,.2)}
+.grid-dash{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:25px;margin-bottom:40px}
+.stat-card{background:var(--bg1);padding:30px;border-radius:24px;border:1px solid var(--b1);position:relative;overflow:hidden}
+.stat-label{color:var(--cr3);font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:block}
+.stat-value{font-family:var(--fd);font-size:36px;color:var(--go);font-weight:700}
+.btn-primary{background:var(--go);color:var(--bg0);padding:14px 28px;border-radius:12px;border:none;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+th{text-align:left;padding:18px;color:var(--cr3);font-size:12px;text-transform:uppercase;border-bottom:1px solid var(--b2)}
+td{padding:18px;border-bottom:1px solid var(--b1);font-size:14px;color:var(--cr2)}
+</style>
 </head>
-<body class="bg-gray-100 min-h-screen pb-20">
+<body>
 
-    <script>
-        const SUPABASE_URL = "https://ngnchrasfwytlsoqxbgd.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nbmNocmFzZnd5dGxzb3F4YmdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MjQ0MTQsImV4cCI6MjA5MzQwMDQxNH0.dQq9keo5iQ4DWxjASTAmsDlTqvFMdVj0XdZZRyr2q-4";
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<div class="sidebar">
+  <div class="sidebar-logo"><h1>Lexus</h1></div>
+  <ul class="nav-list">
+    <li class="nav-item active" onclick="showPage('dash')">Dashboard</li>
+    <li class="nav-item" onclick="showPage('pedidos')">Pedidos</li>
+    <li class="nav-item" onclick="showPage('estoque')">Estoque</li>
+    <li class="nav-item" onclick="showPage('clientes')">Clientes</li>
+    <li class="nav-item" onclick="showPage('financeiro')">Financeiro</li>
+  </ul>
+</div>
 
-        // Estado Global
-        let produtos = [];
-        let clientes = [];
-        let carrinho = [];
+<div class="main">
+  <div id="page-content"></div>
+</div>
 
-        // Inicialização
-        window.onload = async () => {
-            await carregarDados();
-            renderProdutos();
-            renderClientes();
-            renderPedidos();
-        };
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-        async function carregarDados() {
-            // Carrega Produtos
-            const { data: p } = await supabase.from('produtos').select('*');
-            produtos = p || [];
-            // Carrega Clientes
-            const { data: c } = await supabase.from('clientes').select('*');
-            clientes = c || [];
-        }
+<script>
+// CONFIGURAÇÃO CONECTADA AO SEU SUPABASE ngnchrasfwytlsoqxbgd
+const SUPABASE_URL = 'https://ngnchrasfwytlsoqxbgd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nbmNocmFzZnd5dGxzb3F4YmdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MjQ0MTQsImV4cCI6MjA5MzQwMDQxNH0.dQq9keo5iQ4DWxjASTAmsDlTqvFMdVj0XdZZRyr2q-4';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Funções de Venda
-        async function finalizarVenda() {
-            const clienteNome = document.getElementById('select-cliente').value;
-            const total = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
-            
-            if (carrinho.length === 0) return alert("Carrinho vazio!");
+async function showPage(page) {
+  const content = document.getElementById('page-content');
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  
+  if(page === 'dash') {
+    content.innerHTML = `
+      <div class="top-bar"><h2>Dashboard Lexus Pro</h2></div>
+      <div class="grid-dash">
+        <div class="stat-card"><span class="stat-label">Vendas Mês</span><div class="stat-value">R$ 15.780</div></div>
+        <div class="stat-card"><span class="stat-label">Pedidos Ativos</span><div class="stat-value">14</div></div>
+        <div class="stat-card"><span class="stat-label">Saldo em Caixa</span><div class="stat-value">R$ 42.100</div></div>
+      </div>
+      <div class="card"><canvas id="mainChart" height="100"></canvas></div>`;
+    renderChart();
+  }
 
-            const { error } = await supabase.from('pedidos').insert([{
-                cliente_nome: clienteNome,
-                valor_total: total,
-                itens: carrinho,
-                status: 'pendente'
-            }]);
+  if(page === 'estoque') {
+    content.innerHTML = `<div class="top-bar"><h2>Estoque</h2><button class="btn-primary">+ Novo Produto</button></div>
+    <div class="card"><table><thead><tr><th>Item</th><th>Qtd</th><th>Preço</th></tr></thead><tbody id="lista-estoque"></tbody></table></div>`;
+    const { data } = await _supabase.from('estoque').select('*');
+    if(data) {
+      document.getElementById('lista-estoque').innerHTML = data.map(i => `<tr><td>${i.nome}</td><td>${i.qtd}</td><td>R$ ${i.preco}</td></tr>`).join('');
+    }
+  }
 
-            if (!error) {
-                alert("Venda realizada com sucesso!");
-                carrinho = [];
-                renderCarrinho();
-                renderPedidos();
-            }
-        }
+  if(page === 'clientes') {
+    content.innerHTML = `<div class="top-bar"><h2>Clientes</h2><button class="btn-primary">+ Novo Cliente</button></div>
+    <div class="card"><table><thead><tr><th>Nome</th><th>Cidade</th></tr></thead><tbody id="lista-clientes"></tbody></table></div>`;
+    const { data } = await _supabase.from('clientes').select('*');
+    if(data) {
+      document.getElementById('lista-clientes').innerHTML = data.map(c => `<tr><td>${c.nome}</td><td>${c.cidade}</td></tr>`).join('');
+    }
+  }
+}
 
-        // Cadastro de Cliente
-        async function salvarCliente(e) {
-            e.preventDefault();
-            const nome = document.getElementById('nome-cliente').value;
-            const { error } = await supabase.from('clientes').insert([{ nome: nome }]);
-            if (!error) {
-                document.getElementById('nome-cliente').value = '';
-                await carregarDados();
-                renderClientes();
-                alert("Cliente cadastrado!");
-            }
-        }
+function renderChart() {
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Seg','Ter','Qua','Qui','Sex'],
+      datasets: [{ label: 'Vendas', data: [5, 12, 8, 15, 25], borderColor: '#c9a84c', tension: 0.4 }]
+    },
+    options: { plugins: { legend: { display: false } } }
+  });
+}
 
-        // Cadastro de Produto
-        async function salvarProduto(e) {
-            e.preventDefault();
-            const nome = document.getElementById('nome-prod').value;
-            const preco = parseFloat(document.getElementById('preco-prod').value);
-            const { error } = await supabase.from('produtos').insert([{ nome: nome, preco: preco }]);
-            if (!error) {
-                await carregarDados();
-                renderProdutos();
-                alert("Produto cadastrado!");
-            }
-        }
-    </script>
-
-    <header class="bg-blue-600 text-white p-4 shadow-lg sticky top-0 z-50">
-        <div class="flex justify-between items-center max-w-4xl mx-auto">
-            <h1 class="text-xl font-bold italic">LEXUS PRO</h1>
-            <button onclick="carregarDados()" class="bg-blue-500 p-2 rounded-full hover:bg-blue-400">
-                <i class="fas fa-sync-alt text-lg"></i>
-            </button>
-        </div>
-    </header>
-
-    <nav class="bg-white border-b sticky top-[64px] z-40">
-        <div class="flex max-w-4xl mx-auto">
-            <button onclick="switchTab('vendas')" id="btn-vendas" class="flex-1 py-4 font-semibold active-tab">VENDAS</button>
-            <button onclick="switchTab('clientes')" id="btn-clientes" class="flex-1 py-4 font-semibold">CLIENTES</button>
-            <button onclick="switchTab('estoque')" id="btn-estoque" class="flex-1 py-4 font-semibold">ESTOQUE</button>
-            <button onclick="switchTab('financeiro')" id="btn-financeiro" class="flex-1 py-4 font-semibold">PEDIDOS</button>
-        </div>
-    </nav>
-
-    <section id="tab-vendas" class="tab-content active p-4 max-w-4xl mx-auto">
-        <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
-            <label class="block text-sm font-bold mb-2">SELECIONAR CLIENTE</label>
-            <select id="select-cliente" class="w-full border p-3 rounded-lg bg-gray-50 mb-4"></select>
-            
-            <div id="lista-produtos-venda" class="grid grid-cols-2 gap-3">
-                </div>
-        </div>
-
-        <div class="bg-blue-50 p-4 rounded-xl border-2 border-blue-200">
-            <h3 class="font-bold mb-2">CARRINHO</h3>
-            <div id="carrinho-itens" class="mb-4"></div>
-            <button onclick="finalizarVenda()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold shadow-md hover:bg-green-700">
-                FINALIZAR VENDA
-            </button>
-        </div>
-    </section>
-
-    <section id="tab-clientes" class="tab-content p-4 max-w-4xl mx-auto">
-        <form onsubmit="salvarCliente(event)" class="bg-white p-4 rounded-xl mb-4">
-            <input id="nome-cliente" type="text" placeholder="Nome do Cliente" class="w-full border p-3 rounded-lg mb-2" required>
-            <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg">Cadastrar Cliente</button>
-        </form>
-        <div id="lista-clientes" class="bg-white rounded-xl shadow-sm"></div>
-    </section>
-
-    <section id="tab-estoque" class="tab-content p-4 max-w-4xl mx-auto">
-        <form onsubmit="salvarProduto(event)" class="bg-white p-4 rounded-xl mb-4">
-            <input id="nome-prod" type="text" placeholder="Nome do Produto" class="w-full border p-3 rounded-lg mb-2" required>
-            <input id="preco-prod" type="number" step="0.01" placeholder="Preço" class="w-full border p-3 rounded-lg mb-2" required>
-            <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg">Cadastrar Produto</button>
-        </form>
-        <div id="lista-produtos-estoque" class="bg-white rounded-xl shadow-sm"></div>
-    </section>
-
-    <script>
-        // Funções de UI (Renderização)
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab'));
-            document.getElementById(`tab-${tab}`).classList.add('active');
-            document.getElementById(`btn-${tab}`).classList.add('active-tab');
-        }
-
-        function renderProdutos() {
-            const containerVenda = document.getElementById('lista-produtos-venda');
-            containerVenda.innerHTML = produtos.map(p => `
-                <div class="border p-3 rounded-lg bg-white shadow-sm">
-                    <p class="font-bold">${p.nome}</p>
-                    <p class="text-blue-600">R$ ${parseFloat(p.preco).toFixed(2)}</p>
-                    <button onclick="addCarrinho('${p.id}')" class="mt-2 w-full bg-blue-100 text-blue-700 py-1 rounded">+ Add</button>
-                </div>
-            `).join('');
-        }
-
-        function renderClientes() {
-            const select = document.getElementById('select-cliente');
-            const lista = document.getElementById('lista-clientes');
-            select.innerHTML = clientes.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
-            lista.innerHTML = clientes.map(c => `<div class="p-4 border-b">${c.nome}</div>`).join('');
-        }
-
-        function addCarrinho(id) {
-            const prod = produtos.find(p => p.id === id);
-            carrinho.push({...prod, quantidade: 1});
-            renderCarrinho();
-        }
-
-        function renderCarrinho() {
-            const div = document.getElementById('carrinho-itens');
-            div.innerHTML = carrinho.map(i => `<p>${i.nome} - 1x R$ ${parseFloat(i.preco).toFixed(2)}</p>`).join('');
-        }
-    </script>
-
+showPage('dash');
+</script>
 </body>
 </html>
