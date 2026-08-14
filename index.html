@@ -354,6 +354,13 @@ body{display:flex;flex-direction:column}
 #main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;height:100vh}
 #topbar{height:54px;background:var(--bg1);border-bottom:1px solid var(--br);display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0}
 #content{flex:1;overflow-y:auto;padding:24px 28px;min-width:0;width:100%;box-sizing:border-box}
+@media(max-width:720px){
+  .fg-row,.fr{grid-template-columns:1fr!important;display:grid!important}
+  .sg{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .ph{align-items:flex-start;gap:10px}.ph>.btn{width:100%}
+  table{min-width:720px}.modal.wide,.modal{width:96vw!important;max-height:92vh;overflow:auto}
+  .btn{min-height:40px}.ni{min-height:42px}
+}
 </style>
 </head>
 <body>
@@ -420,6 +427,7 @@ body{display:flex;flex-direction:column}
     </div>
       <div class="ni" data-pg="comissao" onclick="go('comissao',this)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Comissionamento</div>
     <div class="ni" data-pg="recebimentos" onclick="go('recebimentos')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Recebimentos</div>
+    <div class="ni" data-pg="pendencias" onclick="go('pendencias',this)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.6L2 18h20L13.7 3.6a2 2 0 00-3.4 0z"/></svg>Pendências</div>
     <div class="ns">Sistema</div>
     <div class="ni" data-pg="config" onclick="go('config',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Configurações
@@ -631,7 +639,7 @@ if(false){
 // ═══════════════════════════════════════════════════════
 //  NAVEGAÇÃO
 // ═══════════════════════════════════════════════════════
-const PGT={dash:'Dashboard',pedidos:'Pedidos de Venda',produtos:'Catálogo de Produtos',clientes:'Clientes',crm:'CRM de Clientes',fornecedores:'Representadas',ia:'IA — Pedido por Voz',relatorios:'Relatórios',comissao:'Comissionamento',config:'Configurações'};
+const PGT={dash:'Dashboard',pedidos:'Pedidos de Venda',produtos:'Catálogo de Produtos',clientes:'Clientes',crm:'CRM de Clientes',fornecedores:'Representadas',ia:'IA — Pedido por Voz',relatorios:'Relatórios',comissao:'Comissionamento',recebimentos:'Recebimentos',pendencias:'Central de Pendências',config:'Configurações'};
 
 function go(page,el){
   console.log('GO:', page);
@@ -644,7 +652,7 @@ function go(page,el){
   try{
     var fns={dash:rDash,pedidos:rPedidos,processos:rProcessos,produtos:rProd,
              clientes:rCli,crm:rCRM,fornecedores:rForn,ia:rIA,relatorios:rRel,
-             comissao:rComissao,recebimentos:rRecebimentos,config:rConfig};
+             comissao:rComissao,recebimentos:rRecebimentos,pendencias:rPendencias,config:rConfig};
     var fn=fns[page]||rDash;
     fn();
   }catch(e){
@@ -950,7 +958,7 @@ function verInativos(){
 function pedMeta(p){
   var raw=String(p&&p.obs||'').replace(/Importado de[^|·—]*/gi,'').trim();
   function pick(re){var m=raw.match(re);return m&&String(m[1]||'').trim()||'';}
-  var fornecedor=pick(/(?:Fornecedor|N[º°o])\s*:?\s*([^|·—]+)/i);
+  var fornecedor=String(p&&p.numero_representada||'')||pick(/(?:Fornecedor|N[º°o])\s*:?\s*([^|·—]+)/i);
   var cliente=pick(/(?:N[º°o]\s*(?:do\s*)?Cliente|Cliente)\s*:?\s*([^|·—]+)/i);
   var produto=pick(/Produto\s*:?\s*([^|·—]+)/i);
   var observacao=pick(/Observa(?:ção|cao)\s*:?\s*(.+)$/i);
@@ -958,10 +966,12 @@ function pedMeta(p){
   var nosso=/^(?:PED|PROC)-/i.test(String(p&&p.id||''))&&!/^PROC-XLS/i.test(String(p&&p.id||''))?String(p.id):'';
   return {nosso:nosso,fornecedor:fornecedor,cliente:cliente,produto:produto,observacao:observacao};
 }
-function pedFatDate(p){var m=String(p&&p.obs||'').match(/Faturamento\s*:\s*(\d{4}-\d{2}-\d{2})/i);return m?m[1]:'';}
+function pedFatDate(p){if(p&&p.faturado_em)return String(p.faturado_em).slice(0,10);var m=String(p&&p.obs||'').match(/Faturamento\s*:\s*(\d{4}-\d{2}-\d{2})/i);return m?m[1]:'';}
+function pedCompetencia(p){if(p&&p.competencia_comissao)return String(p.competencia_comissao).slice(0,7);var mi=MESF.indexOf(p&&p.mes_com||'');if(mi<0)return'';var base=pedFatDate(p)||(p&&p.data)||String(ANO_AT)+'-01-01';return String(base).slice(0,4)+'-'+String(mi+1).padStart(2,'0');}
+function fmtCompetencia(p){var c=typeof p==='string'?p:pedCompetencia(p);if(!c)return'—';var a=c.split('-');return MESF[(+a[1]||1)-1]+' / '+a[0];}
 function rPedidos(){
   console.log("Render: rPedidos");
-  const lista=D.pedidos.filter(p=>!isFastMalhas(p.fid));
+  const lista=D.pedidos.filter(p=>!p.deleted_at&&!isFastMalhas(p.fid));
   const el=document.getElementById('content');if(!el)return;
   el.innerHTML=`
   <div class="sb2" style="margin-bottom:16px">
@@ -1007,7 +1017,7 @@ function filtPed(){
   const q=(document.getElementById('p-busca')?.value||'').toLowerCase();
   const st=document.getElementById('p-fil-st')?.value||'';
   const fid=document.getElementById('p-fil-forn')?.value||'';
-  const lista=D.pedidos.filter(p=>!isFastMalhas(p.fid)&&p.tipo!=='processo').filter(p=>{
+  const lista=D.pedidos.filter(p=>!p.deleted_at&&!isFastMalhas(p.fid)&&p.tipo!=='processo').filter(p=>{
     const cNome=(gC(p.cid).nome||'').toLowerCase();
     const m=pedMeta(p);
     const refs=[m.fornecedor,m.produto].join(' ').toLowerCase();
@@ -1048,7 +1058,7 @@ function rPedTb(lista){
     rows+='<td style="color:var(--cream3)">'+fmtKg(cPeso(p))+'</td>';
     rows+='<td><strong>'+fmt(cT(p))+'</strong></td>';
     rows+='<td style="color:var(--gold)">'+fmt(cC(p))+'</td>';
-    rows+='<td style="font-size:11px;color:var(--cream3)">'+(p.mes_com||'—')+'</td>';
+    rows+='<td style="font-size:11px;color:var(--cream3)">'+fmtCompetencia(p)+'</td>';
     rows+='<td><span class="badge '+(sCls[p.status]||'')+'">'+( sLbl[p.status]||p.status)+'</span></td>';
     rows+='</tr>';
   });
@@ -1114,7 +1124,14 @@ function safePed(p){
     cpct: parseFloat(p.cpct)||3.5,
     obs: p.obs||'',
     trib: p.trib||false,
-    mes_com: p.mes_com||''
+    mes_com: p.mes_com||'',
+    numero_representada:p.numero_representada||pedMeta(p).fornecedor||null,
+    faturado_em:p.faturado_em||pedFatDate(p)||null,
+    competencia_comissao:p.competencia_comissao||(pedCompetencia(p)?pedCompetencia(p)+'-01':null),
+    status_comissao:p.status_comissao||'prevista',
+    valor_recebido:+p.valor_recebido||0,
+    recebido_em:p.recebido_em||null,
+    deleted_at:p.deleted_at||null
   };
 }
 
@@ -1170,10 +1187,8 @@ async function setStatus(id,status){
   updBadge();rDash();
 }
 function novoPed(itsPre){
-  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const cliOpts=[...D.clientes].filter(c=>c.status!=='inativo').sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   const fornOpts=[...D.fornecedores].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(f=>`<option value="${f.id}">${f.nome}</option>`).join('');
-  const mesOpts=meses.map(m=>`<option value="${m}">${m}</option>`).join('');
   const prodOpts=[...D.produtos].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR')).map(p=>`<option value="${p.id}" data-un="${p.un||'un'}">${p.nome}${p.cod&&!String(p.cod).startsWith('XLS-')?' ('+p.cod+')':''}</option>`).join('');
   const it=Array.isArray(itsPre)&&itsPre.length?itsPre[0]:null;
   aM('Novo Pedido / Processo',`
@@ -1195,7 +1210,7 @@ function novoPed(itsPre){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg" style="margin:0"><label>% Comissão</label><input type="number" class="fi" id="np-com" value="3.5" step="0.01"></div>
       <div class="fg" style="margin:0"><label>Tributação</label><select class="fi" id="np-trib"><option value="1">Tributável</option><option value="0">Não Tributável</option></select></div>
-      <div class="fg" style="margin:0"><label>Mês a Receber</label><select class="fi" id="np-mes-com"><option value="">-- escolher --</option>${mesOpts}</select></div>
+      <div class="fg" style="margin:0"><label>Competência a Receber</label><input type="month" class="fi" id="np-mes-com"></div>
     </div>
     <div class="fg"><label>Observações</label><textarea class="fi" id="np-obs" rows="2" placeholder="Observações adicionais..."></textarea></div>
   `,`<button class="btn btn-gold" onclick="confPed()">✓ Confirmar</button><button class="btn btn-out" onclick="fM()">Cancelar</button>`);
@@ -1235,6 +1250,7 @@ async function confPed(){
   const isFM=isFastMalhas(fid);
   const nfornRaw=document.getElementById('np-nforn')?.value?.trim()||'';
   const fatDate=document.getElementById('np-fat')?.value||'';
+  const competencia=document.getElementById('np-mes-com')?.value||'';
   var id;
   if(isFM&&nfornRaw){
     id='PROC-'+nfornRaw;
@@ -1254,7 +1270,11 @@ async function confPed(){
     cpct:+document.getElementById('np-com').value||3.5,
     trib:document.getElementById('np-trib').value==='1',
     obs,
-    mes_com:document.getElementById('np-mes-com')?.value||''
+    mes_com:competencia?MESF[(+competencia.slice(5,7)||1)-1]:'',
+    numero_representada:nforn||null,
+    faturado_em:fatDate||null,
+    competencia_comissao:competencia?competencia+'-01':null,
+    status_comissao:'prevista',valor_recebido:0,recebido_em:null
   };
   if(!await sbUpsert('pedidos',safePed(ped))){alert('Erro ao salvar pedido no Supabase.');return;}
   const c=D.clientes.find(x=>x.id===cid);
@@ -1279,7 +1299,12 @@ async function savePed(id){
   p.cpct=parseFloat(document.getElementById('ep-com').value)||p.cpct;
   p.trib=document.getElementById('ep-trib').value==='1';
   p.status=document.getElementById('ep-status').value||p.status;
-  p.mes_com=document.getElementById('ep-mes').value||'';
+  var _epComp=document.getElementById('ep-mes').value||'';
+  p.mes_com=_epComp?MESF[(+_epComp.slice(5,7)||1)-1]:'';
+  p.competencia_comissao=_epComp?_epComp+'-01':null;
+  p.status_comissao=document.getElementById('ep-stcom')?.value||p.status_comissao||'prevista';
+  p.valor_recebido=+document.getElementById('ep-vrec')?.value||0;
+  p.recebido_em=document.getElementById('ep-drec')?.value||null;
   const epQty2=parseFloat(document.getElementById('ep-qty')?.value)||0;
   const epPu2=parseFloat(document.getElementById('ep-pu')?.value)||0;
   if(epQty2>0&&epPu2>0){
@@ -1289,6 +1314,7 @@ async function savePed(id){
   var _epFat=document.getElementById('ep-fat')?.value||'';
   var _epObs=document.getElementById('ep-obs').value||'';
   p.obs=[_epMetaAntes.fornecedor?'Fornecedor: '+_epMetaAntes.fornecedor:'',_epMetaAntes.produto?'Produto: '+_epMetaAntes.produto:'',_epFat?'Faturamento: '+_epFat:'',_epEntrada?'Entrada: '+_epEntrada:'',_epObs?'Observação: '+_epObs:''].filter(Boolean).join(' | ');
+  p.numero_representada=_epMetaAntes.fornecedor||null;p.faturado_em=_epFat||null;
   try{
     await sbUpsert('pedidos',safePed(p));
     fM();
@@ -1299,9 +1325,9 @@ async function savePed(id){
 }
 
 async function delPed(id){
-  if(!confirm('Excluir pedido '+id+'? Esta ação não pode ser desfeita.'))return;
-  D.pedidos=D.pedidos.filter(function(p){return String(p.id)!==String(id);});
-  await sbDelete('pedidos',id);
+  if(!confirm('Mover este pedido para a lixeira? O histórico ficará preservado.'))return;
+  var p=D.pedidos.find(function(x){return String(x.id)===String(id);});if(!p)return;p.deleted_at=new Date().toISOString();
+  await sbUpsert('pedidos',safePed(p));
   fM();
   rPedidos();
   updBadge();
@@ -1761,7 +1787,7 @@ function parseIA(txt){
 // ═══════════════════════════════════════════════════════
 var CRM_KEY='lexus_crm_v2',CRM_ROWS=[],CRM_READY=false,CRM_LOADING=false;
 async function crmApi(method,body,query){var r=await fetch(SB_URL+'/rest/v1/crm_interacoes'+(query||''),{method:method||'GET',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(window._sbToken||SB_KEY),'Prefer':'return=representation'},body:body===undefined?undefined:JSON.stringify(body)});if(!r.ok)throw new Error('Supabase CRM ('+r.status+'): '+(await r.text()).slice(0,180));var t=await r.text();return t?JSON.parse(t):[];}
-function crmNormalize(x){return{id:x.id,cid:x.cliente_id,criado:(x.contato_em||String(x.created_at||'').slice(0,10))+'T12:00:00',canal:x.canal,responsavel:x.responsavel,assunto:x.assunto,etapa:x.etapa,nota:x.nota,retorno:x.retorno||'',prioridade:x.prioridade,status:x.status||'aberto'};}
+function crmNormalize(x){return{id:x.id,cid:x.cliente_id,criado:(x.contato_em||String(x.created_at||'').slice(0,10))+'T12:00:00',canal:x.canal,responsavel:x.responsavel,assunto:x.assunto,etapa:x.etapa,nota:x.nota,retorno:x.retorno||'',prioridade:x.prioridade,status:x.status||'aberto',valor:+x.valor_oportunidade||0,motivo_perda:x.motivo_perda||''};}
 function crmLoad(){return CRM_ROWS;}
 async function crmSync(){if(CRM_LOADING)return;CRM_LOADING=true;try{var local=[];try{local=JSON.parse(localStorage.getItem(CRM_KEY)||'[]');}catch(e){}if(local.length){var payload=local.map(function(x){return{cliente_id:+x.cid,contato_em:String(x.criado||'').slice(0,10)||new Date().toISOString().slice(0,10),canal:x.canal||'WhatsApp',responsavel:x.responsavel||'',assunto:x.assunto||'',etapa:x.etapa||'Primeiro contato',nota:x.nota||'',retorno:x.retorno||null,prioridade:x.prioridade||'Normal',status:x.status||'aberto'};});await crmApi('POST',payload);localStorage.removeItem(CRM_KEY);}CRM_ROWS=(await crmApi('GET',undefined,'?select=*&order=contato_em.desc,created_at.desc')).map(crmNormalize);CRM_READY=true;}finally{CRM_LOADING=false;}}
 function crmEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -1783,18 +1809,24 @@ async function rCRM(){
 }
 function novoCRM(cid){
   var opts=[...D.clientes].sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');}).map(function(c){return '<option value="'+c.id+'"'+(String(cid||'')===String(c.id)?' selected':'')+'>'+crmEsc(c.nome)+'</option>';}).join('');
-  aM('Registrar contato no CRM','<div class="fg-row"><div class="fg"><label>Cliente</label><select id="crm-cli" class="fi"><option value="">-- selecione --</option>'+opts+'</select></div><div class="fg"><label>Data do contato</label><input id="crm-data" type="date" class="fi" value="'+new Date().toISOString().slice(0,10)+'"></div></div><div class="fg-row"><div class="fg"><label>Canal</label><select id="crm-canal" class="fi"><option>WhatsApp</option><option>Ligação</option><option>E-mail</option><option>Visita</option><option>Reunião online</option></select></div><div class="fg"><label>Responsável</label><input id="crm-resp" class="fi" value="'+crmEsc(D.cfg.nome_exib||'')+'"></div></div><div class="fg-row"><div class="fg"><label>Assunto / oportunidade</label><input id="crm-assunto" class="fi" placeholder="Ex: nova coleção, cotação..."></div><div class="fg"><label>Estágio</label><select id="crm-etapa" class="fi"><option>Primeiro contato</option><option>Qualificação</option><option>Cotação enviada</option><option>Negociação</option><option>Aguardando cliente</option><option>Venda fechada</option><option>Pós-venda</option><option>Sem interesse</option></select></div></div><div class="fg"><label>Resumo completo da conversa</label><textarea id="crm-nota" class="fi" rows="4" placeholder="O que foi conversado, necessidades, objeções e próximos passos"></textarea></div><div class="fg-row"><div class="fg"><label>Próximo retorno</label><input id="crm-retorno" type="date" class="fi"></div><div class="fg"><label>Prioridade</label><select id="crm-prio" class="fi"><option>Normal</option><option>Alta</option><option>Urgente</option><option>Baixa</option></select></div></div>', '<button class="btn btn-gold" onclick="salvarCRM()">Salvar contato</button><button class="btn btn-out" onclick="fM()">Cancelar</button>',true);
+  aM('Registrar contato no CRM','<div class="fg-row"><div class="fg"><label>Cliente</label><select id="crm-cli" class="fi"><option value="">-- selecione --</option>'+opts+'</select></div><div class="fg"><label>Data do contato</label><input id="crm-data" type="date" class="fi" value="'+new Date().toISOString().slice(0,10)+'"></div></div><div class="fg-row"><div class="fg"><label>Canal</label><select id="crm-canal" class="fi"><option>WhatsApp</option><option>Ligação</option><option>E-mail</option><option>Visita</option><option>Reunião online</option></select></div><div class="fg"><label>Responsável</label><input id="crm-resp" class="fi" value="'+crmEsc(D.cfg.nome_exib||'')+'"></div></div><div class="fg-row"><div class="fg"><label>Assunto / oportunidade</label><input id="crm-assunto" class="fi" placeholder="Ex: nova coleção, cotação..."></div><div class="fg"><label>Estágio</label><select id="crm-etapa" class="fi"><option>Primeiro contato</option><option>Qualificação</option><option>Cotação enviada</option><option>Negociação</option><option>Aguardando cliente</option><option>Venda fechada</option><option>Pós-venda</option><option>Sem interesse</option></select></div></div><div class="fg"><label>Resumo completo da conversa</label><textarea id="crm-nota" class="fi" rows="4" placeholder="O que foi conversado, necessidades, objeções e próximos passos"></textarea></div><div class="fg-row"><div class="fg"><label>Próximo retorno</label><input id="crm-retorno" type="date" class="fi"></div><div class="fg"><label>Prioridade</label><select id="crm-prio" class="fi"><option>Normal</option><option>Alta</option><option>Urgente</option><option>Baixa</option></select></div><div class="fg"><label>Valor da oportunidade</label><input id="crm-valor" type="number" step="0.01" class="fi" value="0"></div></div>', '<button class="btn btn-gold" onclick="salvarCRM()">Salvar contato</button><button class="btn btn-out" onclick="fM()">Cancelar</button>',true);
 }
-async function salvarCRM(){var cid=+document.getElementById('crm-cli').value;if(!cid)return alert('Selecione o cliente.');var row={cliente_id:cid,contato_em:document.getElementById('crm-data').value||new Date().toISOString().slice(0,10),canal:document.getElementById('crm-canal').value,responsavel:document.getElementById('crm-resp').value,assunto:document.getElementById('crm-assunto').value,etapa:document.getElementById('crm-etapa').value,nota:document.getElementById('crm-nota').value,retorno:document.getElementById('crm-retorno').value||null,prioridade:document.getElementById('crm-prio').value,status:'aberto'};try{await crmApi('POST',row);CRM_READY=false;fM();await rCRM();}catch(e){alert('Não foi possível salvar no Supabase: '+e.message);}}
-function verCRM(cid){var c=gC(cid),rows=crmLoad().filter(function(x){return String(x.cid)===String(cid);}).sort(function(a,b){return String(b.criado).localeCompare(String(a.criado));});aM('CRM — '+c.nome,'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><span class="badge">📞 '+crmEsc(c.tel||'sem telefone')+'</span><span class="badge">✉ '+crmEsc(c.email||'sem e-mail')+'</span><span class="badge">'+crmEsc((c.cidade||'')+(c.uf?' / '+c.uf:''))+'</span></div>'+rows.map(function(x){return '<div style="border-left:3px solid var(--gold);background:var(--bg1);padding:12px;margin-bottom:10px;border-radius:0 var(--r) var(--r) 0"><div style="display:flex;justify-content:space-between;gap:10px"><strong>'+fmtD(String(x.criado).slice(0,10))+' · '+crmEsc(x.canal)+'</strong><span class="badge">'+crmEsc(x.etapa)+'</span></div><div style="color:var(--gold);margin:6px 0">'+crmEsc(x.assunto||'Contato')+'</div><div style="font-size:12px;white-space:pre-wrap;color:var(--cream2)">'+crmEsc(x.nota||'Sem observações')+'</div><div style="font-size:11px;color:var(--cream4);margin-top:8px">Retorno: '+(x.retorno?fmtD(x.retorno):'não agendado')+' · '+crmEsc(x.prioridade)+' · '+crmEsc(x.responsavel||'')+'</div></div>';}).join('')||'<p style="color:var(--cream4)">Nenhum contato registrado.</p>','<button class="btn btn-gold" onclick="fM();novoCRM('+cid+')">+ Novo contato</button><button class="btn btn-out" onclick="fM()">Fechar</button>',true);}
+async function salvarCRM(){var cid=+document.getElementById('crm-cli').value;if(!cid)return alert('Selecione o cliente.');var row={cliente_id:cid,contato_em:document.getElementById('crm-data').value||new Date().toISOString().slice(0,10),canal:document.getElementById('crm-canal').value,responsavel:document.getElementById('crm-resp').value,assunto:document.getElementById('crm-assunto').value,etapa:document.getElementById('crm-etapa').value,nota:document.getElementById('crm-nota').value,retorno:document.getElementById('crm-retorno').value||null,prioridade:document.getElementById('crm-prio').value,valor_oportunidade:+document.getElementById('crm-valor').value||0,status:'aberto'};try{await crmApi('POST',row);CRM_READY=false;fM();await rCRM();}catch(e){alert('Não foi possível salvar no Supabase: '+e.message);}}
+function verCRM(cid){var c=gC(cid),rows=crmLoad().filter(function(x){return String(x.cid)===String(cid);}).sort(function(a,b){return String(b.criado).localeCompare(String(a.criado));});aM('CRM — '+c.nome,'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><span class="badge">📞 '+crmEsc(c.tel||'sem telefone')+'</span><span class="badge">✉ '+crmEsc(c.email||'sem e-mail')+'</span><span class="badge">'+crmEsc((c.cidade||'')+(c.uf?' / '+c.uf:''))+'</span></div>'+rows.map(function(x){return '<div style="border-left:3px solid var(--gold);background:var(--bg1);padding:12px;margin-bottom:10px;border-radius:0 var(--r) var(--r) 0"><div style="display:flex;justify-content:space-between;gap:10px"><strong>'+fmtD(String(x.criado).slice(0,10))+' · '+crmEsc(x.canal)+'</strong><span class="badge">'+crmEsc(x.etapa)+'</span></div><div style="color:var(--gold);margin:6px 0">'+crmEsc(x.assunto||'Contato')+'</div><div style="font-size:12px;white-space:pre-wrap;color:var(--cream2)">'+crmEsc(x.nota||'Sem observações')+'</div><div style="font-size:11px;color:var(--cream4);margin-top:8px">Retorno: '+(x.retorno?fmtD(x.retorno):'não agendado')+' · '+crmEsc(x.prioridade)+' · '+crmEsc(x.responsavel||'')+'</div></div>';}).join('')||'<p style="color:var(--cream4)">Nenhum contato registrado.</p>','<button class="btn btn-gold" onclick="fM();novoCRM('+cid+')">+ Novo contato</button><button class="btn btn-out" onclick="abrirWhatsCRM('+cid+')">WhatsApp</button><button class="btn btn-out" onclick="fM();concluirUltimoCRM('+cid+')">Concluir retorno</button><button class="btn btn-out" onclick="fM()">Fechar</button>',true);}
 
 // ═══════════════════════════════════════════════════════
 //  RELATÓRIOS
 // ═══════════════════════════════════════════════════════
+async function concluirUltimoCRM(cid){var x=crmLatest(cid);if(!x)return;if(!confirm('Marcar este retorno como concluído?'))return;try{await crmApi('PATCH',{status:'concluido',concluido_em:new Date().toISOString()},'?id=eq.'+encodeURIComponent(x.id));CRM_READY=false;fM();await rCRM();}catch(e){alert(e.message);}}
+async function excluirCRM(id,cid){if(!confirm('Excluir este registro do histórico?'))return;try{await crmApi('DELETE',undefined,'?id=eq.'+encodeURIComponent(id));CRM_READY=false;fM();await rCRM();if(cid)verCRM(cid);}catch(e){alert(e.message);}}
+function abrirWhatsCRM(cid){var c=gC(cid),n=String(c.tel||'').replace(/\D/g,'');if(!n)return alert('Cliente sem telefone cadastrado.');if(n.length<=11)n='55'+n;window.open('https://wa.me/'+n,'_blank');}
+async function criarBackupSupabase(){try{var payload={versao:3,criado_em:new Date().toISOString(),clientes:D.clientes,representadas:D.fornecedores,produtos:D.produtos,pedidos:D.pedidos,config:{meta_mensal:D.cfg.meta_mensal,meta_vendas:D.cfg.meta_vendas},crm:crmLoad()};var r=await fetch(SB_URL+'/rest/v1/lexus_backups',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(window._sbToken||SB_KEY),'Prefer':'return=minimal'},body:JSON.stringify({origem:'manual',payload:payload})});if(!r.ok)throw new Error((await r.text()).slice(0,180));alert('Backup salvo com segurança no Supabase.');}catch(e){alert('Falha no backup: '+e.message);}}
+
 function rRel(){
   const _sa=statsAnoVigente();
   const _relMc=window._relMesComSel!==undefined?window._relMesComSel:MES_AT;
   const _relRep=D.fornecedores.map(function(f){var v=_sa.porRep[f.id];return{nome:f.nome,fat:v?v.fat[_relMc]||0:0,com:v?v.com[_relMc]||0:0};}).filter(function(x){return x.fat||x.com;}).sort(function(a,b){return b.com-a.com;});
+  const _anos=[2024,2025,2026].map(function(a){var ps=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado'&&String(p.data||'').startsWith(String(a));});return{ano:a,vendas:ps.reduce(function(s,p){return s+cT(p);},0),com:ps.reduce(function(s,p){return s+cC(p);},0),pedidos:ps.length,clientes:new Set(ps.map(function(p){return p.cid;})).size};});
   const relFatAno=D.pedidos.filter(function(p){return p.status==='faturado';}).reduce(function(s,p){return s+cT(p);},0);
   var _relFatAno=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&p.data.startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   const porMes=Array.from({length:MES_AT+1},(_,m)=>{
@@ -1824,6 +1856,7 @@ function rRel(){
     <div class="ch"><div class="ct">Quanto cada representada paga</div><select class="fi" style="width:auto" onchange="window._relMesComSel=+this.value;rRel()">${MESF.map((m,i)=>`<option value="${i}"${i===_relMc?' selected':''}>${m}</option>`).join('')}</select></div>
     <div style="overflow-x:auto"><table><thead><tr><th>Representada</th><th>Faturamento relacionado</th><th>Comissão a receber</th><th>Participação</th></tr></thead><tbody>${_relRep.map(x=>`<tr><td><strong>${x.nome}</strong></td><td>${fmt(x.fat)}</td><td style="color:var(--gold);font-weight:700">${fmt(x.com)}</td><td>${(_relRep.reduce((s,r)=>s+r.com,0)?x.com/_relRep.reduce((s,r)=>s+r.com,0)*100:0).toFixed(1)}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--cream4);padding:18px">Nenhuma comissão definida para este mês.</td></tr>'}<tr style="background:var(--gold-bg)"><td><strong>TOTAL — ${MESF[_relMc]}</strong></td><td><strong>${fmt(_relRep.reduce((s,x)=>s+x.fat,0))}</strong></td><td style="color:var(--gold)"><strong>${fmt(_relRep.reduce((s,x)=>s+x.com,0))}</strong></td><td>100%</td></tr></tbody></table></div>
   </div>
+  <div class="card" style="margin-bottom:14px"><div class="ch"><div class="ct">Comparativo anual</div></div><div style="overflow-x:auto"><table><thead><tr><th>Ano</th><th>Pedidos</th><th>Clientes</th><th>Vendas</th><th>Comissão</th><th>Crescimento</th></tr></thead><tbody>${_anos.map((x,i)=>`<tr><td><strong>${x.ano}</strong></td><td>${x.pedidos}</td><td>${x.clientes}</td><td>${fmt(x.vendas)}</td><td style="color:var(--gold)">${fmt(x.com)}</td><td>${i&&_anos[i-1].vendas?((x.vendas/_anos[i-1].vendas-1)*100).toFixed(1)+'%':'—'}</td></tr>`).join('')}</tbody></table></div></div>
   <div class="sg" style="margin-bottom:14px">
     <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Vendas Totais ${ANO_AT}</div><div class="sv">${fmt(_sa.fatAno)}</div><div class="st up">Faturado + aguardando · Supabase</div></div>
     <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento Total ${ANO_AT}</div><div class="sv">${fmt(relFatAno)}</div><div class="st up">Só faturados · Supabase</div></div>
@@ -1982,6 +2015,15 @@ function rRecebimentos(){
   el.innerHTML=h;
 }
 
+function rPendencias(){
+  var el=document.getElementById('content');if(!el)return;var hoje=new Date().toISOString().slice(0,10),itens=[];
+  D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado';}).forEach(function(p){var ref=pedMeta(p).fornecedor;if(!ref)itens.push({tipo:'Pedido sem número',desc:gC(p.cid).nome,id:p.id,acao:"editPed('"+p.id+"')"});if(['faturado','entregue'].includes(p.status)&&!pedFatDate(p))itens.push({tipo:'Faturado sem data',desc:(ref||p.id)+' · '+gC(p.cid).nome,id:p.id,acao:"editPed('"+p.id+"')"});if(['faturado','entregue'].includes(p.status)&&!pedCompetencia(p))itens.push({tipo:'Sem competência',desc:(ref||p.id)+' · '+gF(p.fid).nome,id:p.id,acao:"editPed('"+p.id+"')"});if(p.status_comissao==='vencida'||(pedCompetencia(p)&&pedCompetencia(p)<hoje.slice(0,7)&&!['recebida','conciliada'].includes(p.status_comissao||'')))itens.push({tipo:'Comissão vencida',desc:(ref||p.id)+' · '+fmt(cC(p)),id:p.id,acao:"editPed('"+p.id+"')"});});
+  crmLoad().filter(function(x){return x.retorno&&x.retorno<hoje&&x.status!=='concluido';}).forEach(function(x){itens.push({tipo:'Retorno CRM atrasado',desc:gC(+x.cid).nome+' · '+fmtD(x.retorno),id:x.id,acao:'verCRM('+x.cid+')'});});
+  D.clientes.filter(function(c){return c.status!=='inativo'&&!c.tel;}).forEach(function(c){itens.push({tipo:'Cliente sem telefone',desc:c.nome,id:c.id,acao:'editCli('+c.id+')'});});
+  var grupos={};itens.forEach(function(x){(grupos[x.tipo]||(grupos[x.tipo]=[])).push(x);});
+  el.innerHTML='<div class="ph"><div><div class="pt">Central de Pendências</div><div class="ps">Tudo que exige ação antes de virar problema</div></div><span class="badge" style="color:'+(itens.length?'var(--red)':'var(--green)')+'">'+itens.length+' pendências</span></div><div class="sg" style="margin-bottom:14px">'+Object.keys(grupos).map(function(k){return'<div class="stat"><div class="sl">'+crmEsc(k)+'</div><div class="sv">'+grupos[k].length+'</div></div>';}).join('')+'</div>'+Object.keys(grupos).map(function(k){return'<div class="card"><div class="ch"><div class="ct">'+crmEsc(k)+'</div></div><div class="cb">'+grupos[k].map(function(x){return'<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--br)"><span>'+crmEsc(x.desc)+'</span><button class="btn btn-out" onclick="'+x.acao+'">Corrigir</button></div>';}).join('')+'</div></div>';}).join('')+(itens.length?'':'<div class="card"><div style="padding:30px;text-align:center;color:var(--green)">✓ Nenhuma pendência operacional.</div></div>');
+}
+
 function rConfig(){
   document.getElementById('content').innerHTML=`
   <div style="max-width:520px">
@@ -2097,9 +2139,8 @@ function statsAnoVigente(){
   // reconhecer a comissão. Fonte única para Dashboard e Comissionamento.
   var fM=Array(12).fill(0),cM=Array(12).fill(0);
   var porRep={};
-  D.pedidos.filter(function(p){return ['faturado','entregue'].includes(p.status)&&p.data&&p.data.startsWith(String(ANO_AT));}).forEach(function(p){
-    if(!p.mes_com)return;
-    var mi=MESF.indexOf(p.mes_com);
+  D.pedidos.filter(function(p){var co=pedCompetencia(p);return !p.deleted_at&&['faturado','entregue'].includes(p.status)&&co&&co.startsWith(String(ANO_AT));}).forEach(function(p){
+    var co=pedCompetencia(p),mi=(+co.slice(5,7)||0)-1;
     if(mi<0)return;
     var v=cT(p),c=cC(p);
     fM[mi]+=v;cM[mi]+=c;
@@ -2272,7 +2313,8 @@ function rComissao(){
   var fM=stats.fM,cM=stats.cM,fA=stats.fatAno,cA=stats.comAno,nMfat=stats.nMfat,nMcom=stats.nMcom;
   var mc=window._mesComSel!==undefined?window._mesComSel:MES_AT;
   var repsAtivos=D.fornecedores.filter(function(f){return stats.porRep[f.id];}).sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
-  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id];return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0};}).filter(function(x){return x.fat||x.com;}).sort(function(a,b){return b.com-a.com;});
+  var compSel=String(ANO_AT)+'-'+String(mc+1).padStart(2,'0');
+  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0,rec:ps.reduce(function(s,p){return s+(+p.valor_recebido||0);},0),pend:ps.filter(function(p){return !['recebida','conciliada'].includes(p.status_comissao||'prevista');}).length};}).filter(function(x){return x.fat||x.com||x.rec;}).sort(function(a,b){return b.com-a.com;});
   var mxF=Math.max.apply(null,fM)||1;
   var h='';
   h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px">';
@@ -2280,10 +2322,10 @@ function rComissao(){
   h+='<select onchange="window._mesComSel=+this.value;rComissao()" style="background:#1a1f23;border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#e8e4d4;padding:5px 10px;font-size:13px;cursor:pointer">';
   MESF.forEach(function(m,i){h+='<option value="'+i+'"'+(i===mc?' selected':'')+'>'+m+'</option>';});
   h+='</select></div>';
-  h+='<div class="card" style="margin-bottom:14px"><div class="card-header"><b>Comissão a receber por representada — '+MESF[mc]+'</b></div><div style="overflow-x:auto"><table><thead><tr><th>Representada</th><th>Faturamento</th><th>Comissão prevista</th></tr></thead><tbody>';
-  repsMes.forEach(function(x){h+='<tr><td><strong>'+x.nome+'</strong></td><td>'+fmt(x.fat)+'</td><td style="color:var(--gold);font-weight:700">'+fmt(x.com)+'</td></tr>';});
-  if(!repsMes.length)h+='<tr><td colspan="3" style="text-align:center;padding:18px;color:var(--cream4)">Nenhuma comissão definida para este mês.</td></tr>';
-  h+='<tr style="background:var(--gold-bg)"><td><strong>TOTAL</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.fat;},0))+'</strong></td><td style="color:var(--gold)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.com;},0))+'</strong></td></tr></tbody></table></div></div>';
+  h+='<div class="card" style="margin-bottom:14px"><div class="card-header"><b>Comissão a receber por representada — '+MESF[mc]+'</b></div><div style="overflow-x:auto"><table><thead><tr><th>Representada</th><th>Faturamento</th><th>Previsto</th><th>Recebido</th><th>Diferença</th><th>Pendências</th></tr></thead><tbody>';
+  repsMes.forEach(function(x){h+='<tr><td><strong>'+x.nome+'</strong></td><td>'+fmt(x.fat)+'</td><td style="color:var(--gold);font-weight:700">'+fmt(x.com)+'</td><td style="color:var(--green)">'+fmt(x.rec)+'</td><td style="color:'+(x.rec<x.com?'var(--red)':'var(--green)')+'">'+fmt(x.rec-x.com)+'</td><td>'+x.pend+'</td></tr>';});
+  if(!repsMes.length)h+='<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--cream4)">Nenhuma comissão definida para este mês.</td></tr>';
+  h+='<tr style="background:var(--gold-bg)"><td><strong>TOTAL</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.fat;},0))+'</strong></td><td style="color:var(--gold)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.com;},0))+'</strong></td><td style="color:var(--green)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.rec;},0))+'</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.rec-x.com;},0))+'</strong></td><td></td></tr></tbody></table></div></div>';
   h+='<div class="sg" style="margin-bottom:16px">';
   h+='<div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento Total '+ANO_AT+'</div><div class="sv">'+fmt(fA)+'</div><div class="st up">Acumulado · Supabase</div></div>';
   h+='<div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Total '+ANO_AT+'</div><div class="sv" style="color:var(--gold)">'+fmt(cA)+'</div><div class="st up">Acumulada · Supabase</div></div>';
@@ -2315,7 +2357,6 @@ function editPed(id){
   const p=D.pedidos.find(x=>x.id===id);if(!p)return;
   const meta=pedMeta(p);
   fM();
-  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const statusOpts=['em_producao','aguardando','faturado','entregue','cancelado'];
   const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','entregue':'Entregue','cancelado':'Cancelado'};
   const it0=(p.itens&&p.itens[0])||{};
@@ -2324,7 +2365,6 @@ function editPed(id){
   const epKg=parseFloat(it0.kg||it0.qty)||0;
   const fornOpts=D.fornecedores.map(f=>`<option value="${f.id}"${p.fid===f.id?' selected':''}>${f.nome}</option>`).join('');
   const cliOpts=[...D.clientes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}"${p.cid===c.id?' selected':''}>${c.nome}</option>`).join('');
-  const mesOpts=meses.map(m=>`<option${p.mes_com===m?' selected':''}>${m}</option>`).join('');
   const stOpts=statusOpts.map(s=>`<option value="${s}"${p.status===s?' selected':''}>${sLbl[s]}</option>`).join('');
   aM('Editar '+id,`
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
@@ -2339,12 +2379,17 @@ function editPed(id){
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg"><label>Status</label><select class="fi" id="ep-status">${stOpts}</select></div>
       <div class="fg"><label>Data de Faturamento</label><input type="date" class="fi" id="ep-fat" value="${pedFatDate(p)}"></div>
-      <div class="fg"><label>Mês a Receber</label><select class="fi" id="ep-mes"><option value="">-- escolher --</option>${mesOpts}</select></div>
+      <div class="fg"><label>Competência a Receber</label><input type="month" class="fi" id="ep-mes" value="${pedCompetencia(p)}"></div>
     </div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg"><label>Quantidade (kg/un)</label><input type="number" class="fi" id="ep-qty" value="${epQty}" step="0.01"></div>
       <div class="fg"><label>Preço Unitário (R$)</label><input type="number" class="fi" id="ep-pu" value="${epPu}" step="0.01" oninput="calcEpTotal()"></div>
       <div class="fg"><label>Total (auto)</label><input class="fi" id="ep-total" readonly style="background:var(--bg1);color:var(--gold);font-weight:700" value="R$ ${(epQty*epPu||cT(p)).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></div>
+    </div>
+    <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="fg"><label>Situação da Comissão</label><select class="fi" id="ep-stcom">${['prevista','confirmada','vencida','recebida','conciliada'].map(s=>`<option value="${s}"${(p.status_comissao||'prevista')===s?' selected':''}>${s[0].toUpperCase()+s.slice(1)}</option>`).join('')}</select></div>
+      <div class="fg"><label>Valor Recebido</label><input type="number" step="0.01" class="fi" id="ep-vrec" value="${+p.valor_recebido||0}"></div>
+      <div class="fg"><label>Recebido em</label><input type="date" class="fi" id="ep-drec" value="${p.recebido_em||''}"></div>
     </div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
       <div class="fg"><label>Data de Entrada</label><input type="date" class="fi" id="ep-entrada" value="${(function(){var o=p.obs||'';var m=o.match(/Entrada:(\d{4}-\d{2}-\d{2})/);return m?m[1]:'';})()}"></div>
@@ -2484,7 +2529,7 @@ function filtProc(){
   const st=document.getElementById('proc-fil-st')?.value||'';
   const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','entregue':'Entregue','cancelado':'Cancelado'};
   const sCls={'em_producao':'st-em_producao','aguardando':'st-aguardando','faturado':'st-faturado','entregue':'st-entregue','cancelado':'st-cancelado'};
-  const lista=D.pedidos.filter(p=>isFastMalhas(p.fid)).filter(p=>{
+  const lista=D.pedidos.filter(p=>!p.deleted_at&&isFastMalhas(p.fid)).filter(p=>{
     const cNome=(gC(p.cid).nome||'').toLowerCase();
     const m=pedMeta(p);
     return(!q||[m.fornecedor,m.cliente,m.nosso].join(' ').toLowerCase().includes(q)||cNome.includes(q))&&(!st||st==='_faturar'?(p.status==='aguardando'||p.status==='em_producao'):p.status===st);
@@ -2553,7 +2598,7 @@ window.fecharCompetencia=async function(){var comp=window._recComp||isoMonth();i
 function importPanel(){return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Importador recorrente</div></div><div class="cb"><p style="color:var(--cream3);font-size:12px">Cada aba é tratada como uma representada. Antes de gravar, o sistema mostra fornecedores, clientes, produtos, pedidos, total e inconsistências.</p><input id="v2-xlsx" class="fi" type="file" accept=".xlsx,.xls,.csv" onchange="previewWorkbook(this)"><div id="v2-preview" style="margin-top:12px"></div></div></div>';}
 var oldRConfig=window.rConfig;
 window.rConfig=function(){if(!isAdmin())return go('dash');oldRConfig();var root=document.getElementById('content');if(root)root.insertAdjacentHTML('beforeend',dataPolicyPanel()+qualityPanel()+auditPanel());};
-function dataPolicyPanel(){return'<div class="card" style="margin-top:16px;border-color:var(--green)"><div class="ch"><div class="ct">Fonte oficial dos dados</div><span class="badge" style="color:var(--green)">Supabase</span></div><div class="cb"><strong>Todas as atualizações do sistema devem ser salvas no Supabase.</strong><p style="color:var(--cream3);font-size:12px;margin-top:6px">O navegador não é considerado banco de dados. Cadastros, pedidos, comissões, recebimentos e CRM usam o Supabase como fonte principal.</p></div></div>';}
+function dataPolicyPanel(){return'<div class="card" style="margin-top:16px;border-color:var(--green)"><div class="ch"><div class="ct">Fonte oficial dos dados</div><span class="badge" style="color:var(--green)">Supabase</span></div><div class="cb"><strong>Todas as atualizações do sistema devem ser salvas no Supabase.</strong><p style="color:var(--cream3);font-size:12px;margin:6px 0 12px">O navegador não é considerado banco de dados. Cadastros, pedidos, comissões, recebimentos e CRM usam o Supabase como fonte principal.</p><button class="btn btn-out" onclick="criarBackupSupabase()">Criar backup no Supabase agora</button></div></div>';}
 function qualityPanel(){var groups=[['Clientes',duplicateGroups(D.clientes)],['Produtos',duplicateGroups(D.produtos)],['Representadas',duplicateGroups(D.fornecedores)]],total=groups.reduce(function(a,x){return a+x[1].length;},0);return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Qualidade dos dados</div><span class="badge">'+total+' grupos duplicados</span></div><div class="cb">'+groups.map(function(g){return'<div style="margin-bottom:10px"><strong>'+g[0]+'</strong>: '+(g[1].length?g[1].map(function(x){return esc(x.map(function(y){return y.nome;}).join(' / '));}).join('; '):'Nenhuma duplicidade exata normalizada')+'</div>';}).join('')+'</div></div>';}
 function auditPanel(){return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Auditoria recente</div></div><div class="tw"><table><thead><tr><th>Data</th><th>Tabela</th><th>Ação</th><th>Registro</th></tr></thead><tbody>'+V2.audit.slice(0,30).map(function(x){return'<tr><td>'+new Date(x.created_at).toLocaleString('pt-BR')+'</td><td>'+esc(x.tabela)+'</td><td>'+esc(x.acao)+'</td><td>'+esc(x.registro_id||'—')+'</td></tr>';}).join('')+'</tbody></table></div></div>';}
 
@@ -2567,7 +2612,7 @@ window.previewWorkbook=async function(input){var box=document.getElementById('v2
 window.executeWorkbookImport=async function(){var pack=window._v2Pack;if(!pack)return;try{var rec=await api('importacoes',{method:'POST',headers:{Prefer:'return=representation'},body:{arquivo:pack.source,status:'processando',resumo:pack.summary}}),imp=rec&&rec[0];window.COMISSAO_2026_IMPORT=pack;await importarComissao2026();if(imp)await api('importacoes',{method:'PATCH',query:'?id=eq.'+imp.id,body:{status:'concluida',finished_at:new Date().toISOString(),resumo:pack.summary}});await loadV2();toast('Importação registrada e concluída.');}catch(e){alert(e.message);}};
 
 var oldRDash=window.rDash;
-window.rDash=function(){oldRDash();};
+window.rDash=function(){oldRDash();var root=document.getElementById('content');if(!root)return;var ym=new Date().toISOString().slice(0,7),today=new Date().toISOString().slice(0,10),comMes=D.pedidos.filter(function(p){return !p.deleted_at&&pedCompetencia(p)===ym&&!['recebida','conciliada'].includes(p.status_comissao||'prevista');}).reduce(function(s,p){return s+cC(p);},0),venc=D.pedidos.filter(function(p){return !p.deleted_at&&(p.status_comissao==='vencida'||(pedCompetencia(p)&&pedCompetencia(p)<ym&&!['recebida','conciliada'].includes(p.status_comissao||'')));}).length,ret=crmLoad().filter(function(x){return x.retorno===today&&x.status!=='concluido';}).length,semFat=D.pedidos.filter(function(p){return !p.deleted_at&&['faturado','entregue'].includes(p.status)&&!pedFatDate(p);}).length;root.insertAdjacentHTML('afterbegin','<div class="sg" style="margin-bottom:14px"><div class="stat"><div class="sl">Comissão prevista no mês</div><div class="sv" style="color:var(--gold)">'+fmt(comMes)+'</div></div><div class="stat clk" onclick="go(\'pendencias\')"><div class="sl">Comissões vencidas</div><div class="sv" style="color:var(--red)">'+venc+'</div></div><div class="stat clk" onclick="go(\'crm\')"><div class="sl">Retornos CRM hoje</div><div class="sv">'+ret+'</div></div><div class="stat clk" onclick="go(\'pendencias\')"><div class="sl">Faturados sem data</div><div class="sv">'+semFat+'</div></div></div>');};
 
 var oldVerPed=window.verPed;
 window.verPed=async function(id){oldVerPed(id);try{var rows=await api('anexos',{query:'?select=*&entidade=eq.pedido&entidade_id=eq.'+encodeURIComponent(id)+'&order=created_at.desc'}),modal=document.querySelector('.modal-body,.mb');if(modal)modal.insertAdjacentHTML('beforeend','<div class="fg" style="margin-top:16px"><label>Documentos</label><input type="file" class="fi" accept=".pdf,.png,.jpg,.jpeg,.xlsx" onchange="uploadPedidoFile(\''+esc(id)+'\',this)"><div style="margin-top:8px">'+(rows||[]).map(function(x){return'<div style="padding:6px 0;border-bottom:1px solid var(--br)">'+esc(x.nome)+' <span style="color:var(--cream4)">'+new Date(x.created_at).toLocaleString('pt-BR')+'</span></div>';}).join('')+'</div></div>');}catch(e){console.warn(e.message);}};
