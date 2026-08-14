@@ -405,6 +405,9 @@ body{display:flex;flex-direction:column}
     <div class="ni" data-pg="clientes" onclick="go('clientes',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Clientes
     </div>
+    <div class="ni" data-pg="crm" onclick="go('crm',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4z"/><path d="M8 9h8M8 13h5"/></svg>CRM
+    </div>
     <div class="ni" data-pg="fornecedores" onclick="go('fornecedores',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Representadas
     </div>
@@ -628,7 +631,7 @@ if(false){
 // ═══════════════════════════════════════════════════════
 //  NAVEGAÇÃO
 // ═══════════════════════════════════════════════════════
-const PGT={dash:'Dashboard',pedidos:'Pedidos de Venda',produtos:'Catálogo de Produtos',clientes:'Clientes',fornecedores:'Representadas',ia:'IA — Pedido por Voz',relatorios:'Relatórios',comissao:'Comissionamento',config:'Configurações'};
+const PGT={dash:'Dashboard',pedidos:'Pedidos de Venda',produtos:'Catálogo de Produtos',clientes:'Clientes',crm:'CRM de Clientes',fornecedores:'Representadas',ia:'IA — Pedido por Voz',relatorios:'Relatórios',comissao:'Comissionamento',config:'Configurações'};
 
 function go(page,el){
   console.log('GO:', page);
@@ -640,7 +643,7 @@ function go(page,el){
   console.log('Abrindo:', page);
   try{
     var fns={dash:rDash,pedidos:rPedidos,processos:rProcessos,produtos:rProd,
-             clientes:rCli,fornecedores:rForn,ia:rIA,relatorios:rRel,
+             clientes:rCli,crm:rCRM,fornecedores:rForn,ia:rIA,relatorios:rRel,
              comissao:rComissao,recebimentos:rRecebimentos,config:rConfig};
     var fn=fns[page]||rDash;
     fn();
@@ -955,6 +958,7 @@ function pedMeta(p){
   var nosso=/^(?:PED|PROC)-/i.test(String(p&&p.id||''))&&!/^PROC-XLS/i.test(String(p&&p.id||''))?String(p.id):'';
   return {nosso:nosso,fornecedor:fornecedor,cliente:cliente,produto:produto,observacao:observacao};
 }
+function pedFatDate(p){var m=String(p&&p.obs||'').match(/Faturamento\s*:\s*(\d{4}-\d{2}-\d{2})/i);return m?m[1]:'';}
 function rPedidos(){
   console.log("Render: rPedidos");
   const lista=D.pedidos.filter(p=>!isFastMalhas(p.fid));
@@ -982,17 +986,16 @@ function rPedidos(){
   <table class="tbl-full" id="p-tbl">
     <thead><tr>
       <th style="width:32px">#</th>
-      <th>Nosso Nº</th>
-      <th>Nº Cliente</th>
       <th>Nº Representada</th>
       <th>Produto</th>
       <th>Cliente</th>
       <th>Representada</th>
-      <th>Data</th>
+      <th>Data Pedido</th>
+      <th>Faturamento</th>
       <th>Peso (kg)</th>
       <th>Valor</th>
       <th>Comissão</th>
-      <th>Mês Com.</th>
+      <th>Mês a Receber</th>
       <th>Status</th>
     </tr></thead>
     <tbody id="p-tb"></tbody>
@@ -1007,7 +1010,7 @@ function filtPed(){
   const lista=D.pedidos.filter(p=>!isFastMalhas(p.fid)&&p.tipo!=='processo').filter(p=>{
     const cNome=(gC(p.cid).nome||'').toLowerCase();
     const m=pedMeta(p);
-    const refs=[m.nosso,m.cliente,m.fornecedor,m.produto].join(' ').toLowerCase();
+    const refs=[m.fornecedor,m.produto].join(' ').toLowerCase();
     const matchQ=!q||refs.includes(q)||cNome.includes(q);
     const matchSt=!st||(st==='_faturar'?(p.status!=='faturado'&&p.status!=='cancelado'&&p.status!=='entregue'):p.status===st);
     const matchF=!fid||String(p.fid)===fid;
@@ -1036,13 +1039,12 @@ function rPedTb(lista){
     var rowCls=p.oculto?'oculto-badge':'';
     rows+='<tr class="'+rowCls+'" onclick="verPed(\''+p.id+'\')" style="cursor:pointer;border-bottom:1px solid var(--br)">';
     rows+='<td style="font-size:10px;color:var(--cream4);min-width:28px">'+(_seqMap[p.id]||'')+'</td>';
-    rows+='<td><strong style="color:var(--gold)">'+(meta.nosso||'—')+'</strong></td>';
-    rows+='<td style="font-size:11px;color:var(--cream3)">'+(meta.cliente||'—')+'</td>';
     rows+='<td style="font-size:11px;color:var(--cream3)">'+(meta.fornecedor||'—')+'</td>';
     rows+='<td>'+(meta.produto||p.itens.map(function(i){return gP(i.pid).nome||'';}).filter(Boolean).join(', ')||'—')+'</td>';
     rows+='<td>'+(gC(p.cid).nome||'—')+'</td>';
     rows+='<td style="font-size:11px;color:var(--cream4)">'+(gF(p.fid).nome||'—')+'</td>';
     rows+='<td style="color:var(--cream3)">'+fmtD(p.data)+'</td>';
+    rows+='<td style="color:var(--cream3)">'+(pedFatDate(p)?fmtD(pedFatDate(p)):'—')+'</td>';
     rows+='<td style="color:var(--cream3)">'+fmtKg(cPeso(p))+'</td>';
     rows+='<td><strong>'+fmt(cT(p))+'</strong></td>';
     rows+='<td style="color:var(--gold)">'+fmt(cC(p))+'</td>';
@@ -1050,7 +1052,7 @@ function rPedTb(lista){
     rows+='<td><span class="badge '+(sCls[p.status]||'')+'">'+( sLbl[p.status]||p.status)+'</span></td>';
     rows+='</tr>';
   });
-  tb.innerHTML=rows||'<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--cream4)">Nenhum pedido encontrado.</td></tr>';
+  tb.innerHTML=rows||'<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--cream4)">Nenhum pedido encontrado.</td></tr>';
 }
 
 function verPed(id){
@@ -1066,7 +1068,7 @@ function verPed(id){
       <div style="background:var(--bg1);border:1px solid var(--br);border-radius:var(--r);padding:11px">
         <div style="font-size:9.5px;color:var(--cream4);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Números de referência</div>
         <div style="font-weight:700;color:${p.tipo==='processo'?'#5f9fc4':'var(--gold)'}">${p.tipo==='processo'?'🔧 Processo':'📋 Pedido'}</div>
-        <div style="font-size:11px;color:var(--cream4)">Nosso: ${meta.nosso||'—'} · Cliente: ${meta.cliente||'—'} · Representada: ${meta.fornecedor||'—'}</div>
+        <div style="font-size:11px;color:var(--cream4)">Representada: ${meta.fornecedor||'—'} · Faturamento: ${pedFatDate(p)?fmtD(pedFatDate(p)):'—'} · Recebimento: ${p.mes_com||'—'}</div>
       </div>
       <div style="background:var(--bg1);border:1px solid var(--br);border-radius:var(--r);padding:11px">
         <div style="font-size:9.5px;color:var(--cream4);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Representada</div>
@@ -1181,8 +1183,8 @@ function novoPed(itsPre){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg" style="margin:0"><label>Data Pedido</label><input type="date" class="fi" id="np-data" value="${new Date().toISOString().slice(0,10)}"></div>
-      <div class="fg" style="margin:0"><label>Nº do Cliente</label><input type="text" class="fi" id="np-ncliente" placeholder="Pedido de compra do cliente"></div>
       <div class="fg" style="margin:0"><label>Nº Pedido / Processo</label><input type="text" class="fi" id="np-nforn" placeholder="Número da representada"></div>
+      <div class="fg" style="margin:0"><label>Data de Faturamento</label><input type="date" class="fi" id="np-fat"></div>
     </div>
     <div class="fg" style="margin-bottom:10px"><label>Produto</label><select class="fi" id="np-produto" onchange="preenchePuProd()"><option value="">-- selecione produto --</option>${prodOpts}</select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
@@ -1193,7 +1195,7 @@ function novoPed(itsPre){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg" style="margin:0"><label>% Comissão</label><input type="number" class="fi" id="np-com" value="3.5" step="0.01"></div>
       <div class="fg" style="margin:0"><label>Tributação</label><select class="fi" id="np-trib"><option value="1">Tributável</option><option value="0">Não Tributável</option></select></div>
-      <div class="fg" style="margin:0"><label>Mês Comissão</label><select class="fi" id="np-mes-com"><option value="">-- nenhum --</option>${mesOpts}</select></div>
+      <div class="fg" style="margin:0"><label>Mês a Receber</label><select class="fi" id="np-mes-com"><option value="">-- escolher --</option>${mesOpts}</select></div>
     </div>
     <div class="fg"><label>Observações</label><textarea class="fi" id="np-obs" rows="2" placeholder="Observações adicionais..."></textarea></div>
   `,`<button class="btn btn-gold" onclick="confPed()">✓ Confirmar</button><button class="btn btn-out" onclick="fM()">Cancelar</button>`);
@@ -1232,7 +1234,7 @@ async function confPed(){
   const pad=n=>String(n).padStart(3,'0');
   const isFM=isFastMalhas(fid);
   const nfornRaw=document.getElementById('np-nforn')?.value?.trim()||'';
-  const ncliente=document.getElementById('np-ncliente')?.value?.trim()||'';
+  const fatDate=document.getElementById('np-fat')?.value||'';
   var id;
   if(isFM&&nfornRaw){
     id='PROC-'+nfornRaw;
@@ -1243,7 +1245,7 @@ async function confPed(){
   const item={pid:prodId||0,qty:qty,pu:pu,mk:0,kg:qty};
   const entrada=document.getElementById('np-entrada')?.value||'';
   const nforn=nfornRaw;
-  const obs=[nforn?'Fornecedor: '+nforn:'',ncliente?'Nº Cliente: '+ncliente:'',prod?'Produto: '+prod:'',entrada?'Entrada: '+entrada:'',document.getElementById('np-obs')?.value?.trim()?'Observação: '+document.getElementById('np-obs').value.trim():''].filter(Boolean).join(' | ');
+  const obs=[nforn?'Fornecedor: '+nforn:'',prod?'Produto: '+prod:'',fatDate?'Faturamento: '+fatDate:'',entrada?'Entrada: '+entrada:'',document.getElementById('np-obs')?.value?.trim()?'Observação: '+document.getElementById('np-obs').value.trim():''].filter(Boolean).join(' | ');
   const ped={
     id,cid,fid,data,
     itens:[item],
@@ -1270,6 +1272,7 @@ function calcEpTotal(){
 
 async function savePed(id){
   const p=D.pedidos.find(x=>x.id===id);if(!p)return;
+  const _epMetaAntes=pedMeta(p);
   p.cid=+document.getElementById('ep-cli').value||p.cid;
   p.fid=+document.getElementById('ep-forn').value||p.fid;
   p.data=document.getElementById('ep-data').value||p.data;
@@ -1283,8 +1286,9 @@ async function savePed(id){
     p.itens=[{pid:0,qty:epQty2,pu:epPu2,mk:0,kg:epQty2}];
   }
   var _epEntrada=document.getElementById('ep-entrada')?.value||'';
+  var _epFat=document.getElementById('ep-fat')?.value||'';
   var _epObs=document.getElementById('ep-obs').value||'';
-  p.obs=(_epEntrada?'Entrada:'+_epEntrada+' | ':'')+_epObs;
+  p.obs=[_epMetaAntes.fornecedor?'Fornecedor: '+_epMetaAntes.fornecedor:'',_epMetaAntes.produto?'Produto: '+_epMetaAntes.produto:'',_epFat?'Faturamento: '+_epFat:'',_epEntrada?'Entrada: '+_epEntrada:'',_epObs?'Observação: '+_epObs:''].filter(Boolean).join(' | ');
   try{
     await sbUpsert('pedidos',safePed(p));
     fM();
@@ -1753,10 +1757,41 @@ function parseIA(txt){
 }
 
 // ═══════════════════════════════════════════════════════
+//  CRM
+// ═══════════════════════════════════════════════════════
+var CRM_KEY='lexus_crm_v2';
+function crmLoad(){try{return JSON.parse(localStorage.getItem(CRM_KEY)||'[]');}catch(e){return[];}}
+function crmSave(rows){localStorage.setItem(CRM_KEY,JSON.stringify(rows));}
+function crmEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function crmLatest(cid){return crmLoad().filter(function(x){return String(x.cid)===String(cid);}).sort(function(a,b){return String(b.criado).localeCompare(String(a.criado));})[0];}
+function rCRM(){
+  var el=document.getElementById('content');if(!el)return;
+  var rows=crmLoad(),today=new Date().toISOString().slice(0,10),q=String(window._crmBusca||'').toLowerCase();
+  var clients=D.clientes.filter(function(c){return c.status!=='inativo'&&(!q||String(c.nome||'').toLowerCase().includes(q)||String(c.tel||'').includes(q));});
+  var overdue=rows.filter(function(x){return x.retorno&&x.retorno<today&&x.status!=='concluido';}).length;
+  var due=rows.filter(function(x){return x.retorno===today&&x.status!=='concluido';}).length;
+  var upcoming=rows.filter(function(x){return x.retorno&&x.retorno>today&&x.status!=='concluido';}).length;
+  el.innerHTML='<div class="ph"><div><div class="pt">CRM de Clientes</div><div class="ps">Conversas, oportunidades e agenda de retornos</div></div><button class="btn btn-gold" onclick="novoCRM()">+ Registrar contato</button></div>'+
+  '<div class="sg" style="margin-bottom:14px"><div class="stat"><div class="sl">Retornos atrasados</div><div class="sv" style="color:var(--red)">'+overdue+'</div></div><div class="stat"><div class="sl">Retornos hoje</div><div class="sv" style="color:var(--gold)">'+due+'</div></div><div class="stat"><div class="sl">Próximos retornos</div><div class="sv">'+upcoming+'</div></div><div class="stat"><div class="sl">Contatos registrados</div><div class="sv">'+rows.length+'</div></div></div>'+
+  '<div class="sb2" style="margin-bottom:14px"><div class="sw2"><input class="si2" placeholder="Buscar cliente ou telefone..." value="'+crmEsc(window._crmBusca||'')+'" oninput="window._crmBusca=this.value;rCRM()"></div></div>'+
+  '<div class="card"><div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Telefone / WhatsApp</th><th>Último contato</th><th>Assunto</th><th>Próximo retorno</th><th>Estágio</th><th>Prioridade</th><th></th></tr></thead><tbody>'+
+  clients.map(function(c){var x=crmLatest(c.id),cls=x&&x.retorno&&x.retorno<today&&x.status!=='concluido'?'color:var(--red);font-weight:700':x&&x.retorno===today?'color:var(--gold);font-weight:700':'';return '<tr><td><strong>'+crmEsc(c.nome)+'</strong><br><span style="font-size:10px;color:var(--cream4)">'+crmEsc((c.cidade||'')+(c.uf?' / '+c.uf:''))+'</span></td><td>'+crmEsc(c.tel||'—')+'</td><td>'+(x?fmtD(String(x.criado).slice(0,10)):'—')+'</td><td>'+crmEsc(x&&x.assunto||'—')+'</td><td style="'+cls+'">'+(x&&x.retorno?fmtD(x.retorno):'—')+'</td><td><span class="badge">'+crmEsc(x&&x.etapa||'Sem contato')+'</span></td><td>'+crmEsc(x&&x.prioridade||'—')+'</td><td><button class="btn btn-out" onclick="verCRM('+c.id+')">Abrir</button></td></tr>';}).join('')+
+  '</tbody></table></div></div>';
+}
+function novoCRM(cid){
+  var opts=[...D.clientes].sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');}).map(function(c){return '<option value="'+c.id+'"'+(String(cid||'')===String(c.id)?' selected':'')+'>'+crmEsc(c.nome)+'</option>';}).join('');
+  aM('Registrar contato no CRM','<div class="fg-row"><div class="fg"><label>Cliente</label><select id="crm-cli" class="fi"><option value="">-- selecione --</option>'+opts+'</select></div><div class="fg"><label>Data do contato</label><input id="crm-data" type="date" class="fi" value="'+new Date().toISOString().slice(0,10)+'"></div></div><div class="fg-row"><div class="fg"><label>Canal</label><select id="crm-canal" class="fi"><option>WhatsApp</option><option>Ligação</option><option>E-mail</option><option>Visita</option><option>Reunião online</option></select></div><div class="fg"><label>Responsável</label><input id="crm-resp" class="fi" value="'+crmEsc(D.cfg.nome_exib||'')+'"></div></div><div class="fg-row"><div class="fg"><label>Assunto / oportunidade</label><input id="crm-assunto" class="fi" placeholder="Ex: nova coleção, cotação..."></div><div class="fg"><label>Estágio</label><select id="crm-etapa" class="fi"><option>Primeiro contato</option><option>Qualificação</option><option>Cotação enviada</option><option>Negociação</option><option>Aguardando cliente</option><option>Venda fechada</option><option>Pós-venda</option><option>Sem interesse</option></select></div></div><div class="fg"><label>Resumo completo da conversa</label><textarea id="crm-nota" class="fi" rows="4" placeholder="O que foi conversado, necessidades, objeções e próximos passos"></textarea></div><div class="fg-row"><div class="fg"><label>Próximo retorno</label><input id="crm-retorno" type="date" class="fi"></div><div class="fg"><label>Prioridade</label><select id="crm-prio" class="fi"><option>Normal</option><option>Alta</option><option>Urgente</option><option>Baixa</option></select></div></div>', '<button class="btn btn-gold" onclick="salvarCRM()">Salvar contato</button><button class="btn btn-out" onclick="fM()">Cancelar</button>',true);
+}
+function salvarCRM(){var cid=+document.getElementById('crm-cli').value;if(!cid)return alert('Selecione o cliente.');var rows=crmLoad();rows.push({id:Date.now(),cid:cid,criado:(document.getElementById('crm-data').value||new Date().toISOString().slice(0,10))+'T12:00:00',canal:document.getElementById('crm-canal').value,responsavel:document.getElementById('crm-resp').value,assunto:document.getElementById('crm-assunto').value,etapa:document.getElementById('crm-etapa').value,nota:document.getElementById('crm-nota').value,retorno:document.getElementById('crm-retorno').value,prioridade:document.getElementById('crm-prio').value,status:'aberto'});crmSave(rows);fM();rCRM();}
+function verCRM(cid){var c=gC(cid),rows=crmLoad().filter(function(x){return String(x.cid)===String(cid);}).sort(function(a,b){return String(b.criado).localeCompare(String(a.criado));});aM('CRM — '+c.nome,'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><span class="badge">📞 '+crmEsc(c.tel||'sem telefone')+'</span><span class="badge">✉ '+crmEsc(c.email||'sem e-mail')+'</span><span class="badge">'+crmEsc((c.cidade||'')+(c.uf?' / '+c.uf:''))+'</span></div>'+rows.map(function(x){return '<div style="border-left:3px solid var(--gold);background:var(--bg1);padding:12px;margin-bottom:10px;border-radius:0 var(--r) var(--r) 0"><div style="display:flex;justify-content:space-between;gap:10px"><strong>'+fmtD(String(x.criado).slice(0,10))+' · '+crmEsc(x.canal)+'</strong><span class="badge">'+crmEsc(x.etapa)+'</span></div><div style="color:var(--gold);margin:6px 0">'+crmEsc(x.assunto||'Contato')+'</div><div style="font-size:12px;white-space:pre-wrap;color:var(--cream2)">'+crmEsc(x.nota||'Sem observações')+'</div><div style="font-size:11px;color:var(--cream4);margin-top:8px">Retorno: '+(x.retorno?fmtD(x.retorno):'não agendado')+' · '+crmEsc(x.prioridade)+' · '+crmEsc(x.responsavel||'')+'</div></div>';}).join('')||'<p style="color:var(--cream4)">Nenhum contato registrado.</p>','<button class="btn btn-gold" onclick="fM();novoCRM('+cid+')">+ Novo contato</button><button class="btn btn-out" onclick="fM()">Fechar</button>',true);}
+
+// ═══════════════════════════════════════════════════════
 //  RELATÓRIOS
 // ═══════════════════════════════════════════════════════
 function rRel(){
   const _sa=statsAnoVigente();
+  const _relMc=window._relMesComSel!==undefined?window._relMesComSel:MES_AT;
+  const _relRep=D.fornecedores.map(function(f){var v=_sa.porRep[f.id];return{nome:f.nome,fat:v?v.fat[_relMc]||0:0,com:v?v.com[_relMc]||0:0};}).filter(function(x){return x.fat||x.com;}).sort(function(a,b){return b.com-a.com;});
   const relFatAno=D.pedidos.filter(function(p){return p.status==='faturado';}).reduce(function(s,p){return s+cT(p);},0);
   var _relFatAno=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&p.data.startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   const porMes=Array.from({length:MES_AT+1},(_,m)=>{
@@ -1782,6 +1817,10 @@ function rRel(){
   const pesoT=D.pedidos.reduce((s,p)=>s+cPeso(p),0);
 
   document.getElementById('content').innerHTML=`
+  <div class="card" style="margin-bottom:14px">
+    <div class="ch"><div class="ct">Quanto cada representada paga</div><select class="fi" style="width:auto" onchange="window._relMesComSel=+this.value;rRel()">${MESF.map((m,i)=>`<option value="${i}"${i===_relMc?' selected':''}>${m}</option>`).join('')}</select></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Representada</th><th>Faturamento relacionado</th><th>Comissão a receber</th><th>Participação</th></tr></thead><tbody>${_relRep.map(x=>`<tr><td><strong>${x.nome}</strong></td><td>${fmt(x.fat)}</td><td style="color:var(--gold);font-weight:700">${fmt(x.com)}</td><td>${(_relRep.reduce((s,r)=>s+r.com,0)?x.com/_relRep.reduce((s,r)=>s+r.com,0)*100:0).toFixed(1)}%</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--cream4);padding:18px">Nenhuma comissão definida para este mês.</td></tr>'}<tr style="background:var(--gold-bg)"><td><strong>TOTAL — ${MESF[_relMc]}</strong></td><td><strong>${fmt(_relRep.reduce((s,x)=>s+x.fat,0))}</strong></td><td style="color:var(--gold)"><strong>${fmt(_relRep.reduce((s,x)=>s+x.com,0))}</strong></td><td>100%</td></tr></tbody></table></div>
+  </div>
   <div class="sg" style="margin-bottom:14px">
     <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Vendas Totais ${ANO_AT}</div><div class="sv">${fmt(_sa.fatAno)}</div><div class="st up">Faturado + aguardando · Supabase</div></div>
     <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento Total ${ANO_AT}</div><div class="sv">${fmt(relFatAno)}</div><div class="st up">Só faturados · Supabase</div></div>
@@ -2230,13 +2269,18 @@ function rComissao(){
   var fM=stats.fM,cM=stats.cM,fA=stats.fatAno,cA=stats.comAno,nMfat=stats.nMfat,nMcom=stats.nMcom;
   var mc=window._mesComSel!==undefined?window._mesComSel:MES_AT;
   var repsAtivos=D.fornecedores.filter(function(f){return stats.porRep[f.id];}).sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id];return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0};}).filter(function(x){return x.fat||x.com;}).sort(function(a,b){return b.com-a.com;});
   var mxF=Math.max.apply(null,fM)||1;
   var h='';
   h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px">';
   h+='<span style="font-size:11px;font-weight:700;color:#9a9485;text-transform:uppercase">Mês:</span>';
   h+='<select onchange="window._mesComSel=+this.value;rComissao()" style="background:#1a1f23;border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#e8e4d4;padding:5px 10px;font-size:13px;cursor:pointer">';
-  MESF.forEach(function(m,i){if(fM[i]||cM[i])h+='<option value="'+i+'"'+(i===mc?' selected':'')+'>'+m+'</option>';});
+  MESF.forEach(function(m,i){h+='<option value="'+i+'"'+(i===mc?' selected':'')+'>'+m+'</option>';});
   h+='</select></div>';
+  h+='<div class="card" style="margin-bottom:14px"><div class="card-header"><b>Comissão a receber por representada — '+MESF[mc]+'</b></div><div style="overflow-x:auto"><table><thead><tr><th>Representada</th><th>Faturamento</th><th>Comissão prevista</th></tr></thead><tbody>';
+  repsMes.forEach(function(x){h+='<tr><td><strong>'+x.nome+'</strong></td><td>'+fmt(x.fat)+'</td><td style="color:var(--gold);font-weight:700">'+fmt(x.com)+'</td></tr>';});
+  if(!repsMes.length)h+='<tr><td colspan="3" style="text-align:center;padding:18px;color:var(--cream4)">Nenhuma comissão definida para este mês.</td></tr>';
+  h+='<tr style="background:var(--gold-bg)"><td><strong>TOTAL</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.fat;},0))+'</strong></td><td style="color:var(--gold)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.com;},0))+'</strong></td></tr></tbody></table></div></div>';
   h+='<div class="sg" style="margin-bottom:16px">';
   h+='<div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento Total '+ANO_AT+'</div><div class="sv">'+fmt(fA)+'</div><div class="st up">Acumulado · Supabase</div></div>';
   h+='<div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Total '+ANO_AT+'</div><div class="sv" style="color:var(--gold)">'+fmt(cA)+'</div><div class="st up">Acumulada · Supabase</div></div>';
@@ -2266,6 +2310,7 @@ function rComissao(){
 
 function editPed(id){
   const p=D.pedidos.find(x=>x.id===id);if(!p)return;
+  const meta=pedMeta(p);
   fM();
   const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const statusOpts=['em_producao','aguardando','faturado','entregue','cancelado'];
@@ -2288,9 +2333,10 @@ function editPed(id){
       <div class="fg"><label>% Comissão</label><input type="number" class="fi" id="ep-com" value="${p.cpct||3.5}" step="0.01"></div>
       <div class="fg"><label>Tributação</label><select class="fi" id="ep-trib"><option value="1"${p.trib?' selected':''}>Tributável</option><option value="0"${!p.trib?' selected':''}>Não Tributável</option></select></div>
     </div>
-    <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg"><label>Status</label><select class="fi" id="ep-status">${stOpts}</select></div>
-      <div class="fg"><label>Mês Comissão</label><select class="fi" id="ep-mes"><option value="">-- nenhum --</option>${mesOpts}</select></div>
+      <div class="fg"><label>Data de Faturamento</label><input type="date" class="fi" id="ep-fat" value="${pedFatDate(p)}"></div>
+      <div class="fg"><label>Mês a Receber</label><select class="fi" id="ep-mes"><option value="">-- escolher --</option>${mesOpts}</select></div>
     </div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg"><label>Quantidade (kg/un)</label><input type="number" class="fi" id="ep-qty" value="${epQty}" step="0.01"></div>
@@ -2299,7 +2345,7 @@ function editPed(id){
     </div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
       <div class="fg"><label>Data de Entrada</label><input type="date" class="fi" id="ep-entrada" value="${(function(){var o=p.obs||'';var m=o.match(/Entrada:(\d{4}-\d{2}-\d{2})/);return m?m[1]:'';})()}"></div>
-      <div class="fg"><label>Observações</label><textarea class="fi" id="ep-obs" rows="2">${(function(){var o=p.obs||'';return o.startsWith('Entrada:')?o.split(' | ').slice(1).join(' | '):o;})()}</textarea></div>
+      <div class="fg"><label>Observações</label><textarea class="fi" id="ep-obs" rows="2">${meta.observacao||''}</textarea></div>
     </div>
   `,`<button class="btn btn-gold" onclick="savePed('${id}')">💾 Salvar</button><button class="btn btn-out" onclick="fM()">Cancelar</button>`);
 }
@@ -2494,7 +2540,7 @@ window.svCli=async function(id){if(!canWrite())return alert('Seu perfil é somen
 window.svProd=async function(){if(!canWrite())return alert('Seu perfil é somente leitura.');var n=document.getElementById('pr-nome');if(n&&!validateUnique('produto',n.value,document.getElementById('pr-id')?.value))return;return oldSvProd.apply(this,arguments);};
 window.svForn=async function(id){if(!canWrite())return alert('Seu perfil é somente leitura.');var n=document.getElementById('f-nome');if(n&&!validateUnique('representada',n.value,id))return;return oldSvForn.apply(this,arguments);};
 
-window.rRecebimentos=function(){var root=document.getElementById('main'),comp=window._recComp||isoMonth(),rows=V2.recebimentos.filter(function(x){return x.competencia===comp;}),prev=rows.reduce(function(a,x){return a+(+x.valor_previsto||0);},0),paid=rows.reduce(function(a,x){return a+(+x.valor_recebido||0);},0),closed=V2.fechamentos.some(function(x){return x.competencia===comp;});root.innerHTML='<div class="ph"><div><div class="pt">Recebimentos</div><div class="ps">Previsto, recebido, parcial e atrasado</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="fi" type="month" value="'+comp+'" onchange="window._recComp=this.value;rRecebimentos()"><button class="btn btn-gold" onclick="novoRecebimento()">+ Lançar</button><button class="btn btn-out" onclick="exportarRecebimentos()">Exportar CSV</button><button class="btn btn-out" onclick="fecharCompetencia()" '+(closed?'disabled':'')+'>'+(closed?'Mês fechado':'Fechar mês')+'</button></div></div><div class="stats"><div class="stat"><div class="sl">Previsto</div><div class="sv">'+money(prev)+'</div></div><div class="stat"><div class="sl">Recebido</div><div class="sv">'+money(paid)+'</div></div><div class="stat"><div class="sl">Em aberto</div><div class="sv">'+money(prev-paid)+'</div></div></div><div class="card"><div class="tw"><table><thead><tr><th>Pedido</th><th>Representada</th><th>Vencimento</th><th>Previsto</th><th>Recebido</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(function(x){return'<tr><td>'+esc(x.pedido_id)+'</td><td>'+esc((gF(+x.representada_id)||{}).nome||'—')+'</td><td>'+esc(x.vencimento||'—')+'</td><td>'+money(x.valor_previsto)+'</td><td>'+money(x.valor_recebido)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td><button class="btn btn-out" onclick="editarRecebimento(\''+x.id+'\')">Editar</button></td></tr>';}).join('')+' </tbody></table></div></div>'+(rows.length?'':'<div class="empty">Nenhum recebimento nesta competência.</div>');};
+window.rRecebimentos=function(){var root=document.getElementById('content'),comp=window._recComp||isoMonth(),rows=V2.recebimentos.filter(function(x){return x.competencia===comp;}),prev=rows.reduce(function(a,x){return a+(+x.valor_previsto||0);},0),paid=rows.reduce(function(a,x){return a+(+x.valor_recebido||0);},0),closed=V2.fechamentos.some(function(x){return x.competencia===comp;});root.innerHTML='<div class="ph"><div><div class="pt">Recebimentos</div><div class="ps">Previsto, recebido, parcial e atrasado</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="fi" type="month" value="'+comp+'" onchange="window._recComp=this.value;rRecebimentos()"><button class="btn btn-gold" onclick="novoRecebimento()">+ Lançar</button><button class="btn btn-out" onclick="exportarRecebimentos()">Exportar CSV</button><button class="btn btn-out" onclick="fecharCompetencia()" '+(closed?'disabled':'')+'>'+(closed?'Mês fechado':'Fechar mês')+'</button></div></div><div class="stats"><div class="stat"><div class="sl">Previsto</div><div class="sv">'+money(prev)+'</div></div><div class="stat"><div class="sl">Recebido</div><div class="sv">'+money(paid)+'</div></div><div class="stat"><div class="sl">Em aberto</div><div class="sv">'+money(prev-paid)+'</div></div></div><div class="card"><div class="tw"><table><thead><tr><th>Pedido</th><th>Representada</th><th>Vencimento</th><th>Previsto</th><th>Recebido</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(function(x){return'<tr><td>'+esc(x.pedido_id)+'</td><td>'+esc((gF(+x.representada_id)||{}).nome||'—')+'</td><td>'+esc(x.vencimento||'—')+'</td><td>'+money(x.valor_previsto)+'</td><td>'+money(x.valor_recebido)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td><button class="btn btn-out" onclick="editarRecebimento(\''+x.id+'\')">Editar</button></td></tr>';}).join('')+' </tbody></table></div></div>'+(rows.length?'':'<div class="empty">Nenhum recebimento nesta competência.</div>');};
 window.novoRecebimento=function(){editarRecebimento('');};
 window.editarRecebimento=function(id){var x=V2.recebimentos.find(function(r){return r.id===id;})||{competencia:window._recComp||isoMonth(),status:'pendente',valor_previsto:0,valor_recebido:0};aM(id?'Editar recebimento':'Novo recebimento','<div class="fg-row"><div class="fg"><label>Pedido</label><input id="rx-ped" class="fi" value="'+esc(x.pedido_id||'')+'"></div><div class="fg"><label>Competência</label><input id="rx-comp" type="month" class="fi" value="'+esc(x.competencia)+'"></div></div><div class="fg-row"><div class="fg"><label>Valor previsto</label><input id="rx-prev" type="number" step="0.01" class="fi" value="'+(+x.valor_previsto||0)+'"></div><div class="fg"><label>Valor recebido</label><input id="rx-paid" type="number" step="0.01" class="fi" value="'+(+x.valor_recebido||0)+'"></div></div><div class="fg-row"><div class="fg"><label>Vencimento</label><input id="rx-venc" type="date" class="fi" value="'+esc(x.vencimento||'')+'"></div><div class="fg"><label>Recebido em</label><input id="rx-data" type="date" class="fi" value="'+esc(x.recebido_em||'')+'"></div></div><div class="fg"><label>Observação</label><textarea id="rx-obs" class="fi">'+esc(x.observacao||'')+'</textarea></div>','<button class="btn btn-gold" onclick="salvarRecebimento(\''+esc(id)+'\')">Salvar</button>'+(id?'<button class="btn btn-red" onclick="excluirRecebimento(\''+esc(id)+'\')">Excluir</button>':'')+'<button class="btn btn-out" onclick="fM()">Cancelar</button>');};
 window.salvarRecebimento=async function(id){try{var ped=document.getElementById('rx-ped').value.trim(),p=D.pedidos.find(function(x){return String(x.id)===ped;}),prev=+document.getElementById('rx-prev').value||0,paid=+document.getElementById('rx-paid').value||0;if(!ped)return alert('Informe o pedido.');var row={pedido_id:ped,representada_id:p?String(p.fid):null,competencia:document.getElementById('rx-comp').value,valor_previsto:prev,valor_recebido:paid,vencimento:document.getElementById('rx-venc').value||null,recebido_em:document.getElementById('rx-data').value||null,observacao:document.getElementById('rx-obs').value,status:paid<=0?'pendente':paid<prev?'parcial':'recebido',updated_at:new Date().toISOString()};if(id)row.id=id;await api('recebimentos',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:row});await loadV2();fM();rRecebimentos();toast('Recebimento salvo.');}catch(e){alert(e.message);}};
@@ -2503,7 +2549,7 @@ window.fecharCompetencia=async function(){var comp=window._recComp||isoMonth();i
 
 function importPanel(){return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Importador recorrente</div></div><div class="cb"><p style="color:var(--cream3);font-size:12px">Cada aba é tratada como uma representada. Antes de gravar, o sistema mostra fornecedores, clientes, produtos, pedidos, total e inconsistências.</p><input id="v2-xlsx" class="fi" type="file" accept=".xlsx,.xls,.csv" onchange="previewWorkbook(this)"><div id="v2-preview" style="margin-top:12px"></div></div></div>';}
 var oldRConfig=window.rConfig;
-window.rConfig=function(){if(!isAdmin())return go('dash');oldRConfig();var root=document.getElementById('main');root.insertAdjacentHTML('beforeend',qualityPanel()+auditPanel());};
+window.rConfig=function(){if(!isAdmin())return go('dash');oldRConfig();var root=document.getElementById('content');if(root)root.insertAdjacentHTML('beforeend',qualityPanel()+auditPanel());};
 function qualityPanel(){var groups=[['Clientes',duplicateGroups(D.clientes)],['Produtos',duplicateGroups(D.produtos)],['Representadas',duplicateGroups(D.fornecedores)]],total=groups.reduce(function(a,x){return a+x[1].length;},0);return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Qualidade dos dados</div><span class="badge">'+total+' grupos duplicados</span></div><div class="cb">'+groups.map(function(g){return'<div style="margin-bottom:10px"><strong>'+g[0]+'</strong>: '+(g[1].length?g[1].map(function(x){return esc(x.map(function(y){return y.nome;}).join(' / '));}).join('; '):'Nenhuma duplicidade exata normalizada')+'</div>';}).join('')+'</div></div>';}
 function auditPanel(){return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Auditoria recente</div></div><div class="tw"><table><thead><tr><th>Data</th><th>Tabela</th><th>Ação</th><th>Registro</th></tr></thead><tbody>'+V2.audit.slice(0,30).map(function(x){return'<tr><td>'+new Date(x.created_at).toLocaleString('pt-BR')+'</td><td>'+esc(x.tabela)+'</td><td>'+esc(x.acao)+'</td><td>'+esc(x.registro_id||'—')+'</td></tr>';}).join('')+'</tbody></table></div></div>';}
 
