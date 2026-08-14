@@ -944,6 +944,17 @@ function verInativos(){
 // ═══════════════════════════════════════════════════════
 //  PEDIDOS
 // ═══════════════════════════════════════════════════════
+function pedMeta(p){
+  var raw=String(p&&p.obs||'').replace(/Importado de[^|·—]*/gi,'').trim();
+  function pick(re){var m=raw.match(re);return m&&String(m[1]||'').trim()||'';}
+  var fornecedor=pick(/(?:Fornecedor|N[º°o])\s*:?\s*([^|·—]+)/i);
+  var cliente=pick(/(?:N[º°o]\s*(?:do\s*)?Cliente|Cliente)\s*:?\s*([^|·—]+)/i);
+  var produto=pick(/Produto\s*:?\s*([^|·—]+)/i);
+  var observacao=pick(/Observa(?:ção|cao)\s*:?\s*(.+)$/i);
+  if(!produto&&raw.indexOf(' — ')>=0)produto=raw.split(' — ').slice(1).join(' — ').replace(/Importado de.*/i,'').trim();
+  var nosso=/^(?:PED|PROC)-/i.test(String(p&&p.id||''))&&!/^PROC-XLS/i.test(String(p&&p.id||''))?String(p.id):'';
+  return {nosso:nosso,fornecedor:fornecedor,cliente:cliente,produto:produto,observacao:observacao};
+}
 function rPedidos(){
   console.log("Render: rPedidos");
   const lista=D.pedidos.filter(p=>!isFastMalhas(p.fid));
@@ -971,8 +982,9 @@ function rPedidos(){
   <table class="tbl-full" id="p-tbl">
     <thead><tr>
       <th style="width:32px">#</th>
-      <th>ID</th>
-      <th>Nº Forn.</th>
+      <th>Nosso Nº</th>
+      <th>Nº Cliente</th>
+      <th>Nº Representada</th>
       <th>Produto</th>
       <th>Cliente</th>
       <th>Representada</th>
@@ -994,8 +1006,9 @@ function filtPed(){
   const fid=document.getElementById('p-fil-forn')?.value||'';
   const lista=D.pedidos.filter(p=>!isFastMalhas(p.fid)&&p.tipo!=='processo').filter(p=>{
     const cNome=(gC(p.cid).nome||'').toLowerCase();
-    const numF=(''||'').toLowerCase();
-    const matchQ=!q||p.id.toLowerCase().includes(q)||cNome.includes(q)||numF.includes(q);
+    const m=pedMeta(p);
+    const refs=[m.nosso,m.cliente,m.fornecedor,m.produto].join(' ').toLowerCase();
+    const matchQ=!q||refs.includes(q)||cNome.includes(q);
     const matchSt=!st||(st==='_faturar'?(p.status!=='faturado'&&p.status!=='cancelado'&&p.status!=='entregue'):p.status===st);
     const matchF=!fid||String(p.fid)===fid;
     return matchQ&&matchSt&&matchF;
@@ -1019,13 +1032,14 @@ function rPedTb(lista){
   });
   var rows='';
   sorted.forEach(function(p){
-    var nforn=(p.obs||'').startsWith('Nº ')?(p.obs.split(' — ')[0]||'').replace('Nº ',''):'—';
+    var meta=pedMeta(p);
     var rowCls=p.oculto?'oculto-badge':'';
     rows+='<tr class="'+rowCls+'" onclick="verPed(\''+p.id+'\')" style="cursor:pointer;border-bottom:1px solid var(--br)">';
     rows+='<td style="font-size:10px;color:var(--cream4);min-width:28px">'+(_seqMap[p.id]||'')+'</td>';
-    rows+='<td><strong style="color:var(--gold)">'+p.id+'</strong></td>';
-    rows+='<td style="font-size:11px;color:var(--cream3)">'+nforn+'</td>';
-    rows+='<td>'+((p.obs||'').split(' — ').slice(1).join(' — ')||'')+'</td>';
+    rows+='<td><strong style="color:var(--gold)">'+(meta.nosso||'—')+'</strong></td>';
+    rows+='<td style="font-size:11px;color:var(--cream3)">'+(meta.cliente||'—')+'</td>';
+    rows+='<td style="font-size:11px;color:var(--cream3)">'+(meta.fornecedor||'—')+'</td>';
+    rows+='<td>'+(meta.produto||p.itens.map(function(i){return gP(i.pid).nome||'';}).filter(Boolean).join(', ')||'—')+'</td>';
     rows+='<td>'+(gC(p.cid).nome||'—')+'</td>';
     rows+='<td style="font-size:11px;color:var(--cream4)">'+(gF(p.fid).nome||'—')+'</td>';
     rows+='<td style="color:var(--cream3)">'+fmtD(p.data)+'</td>';
@@ -1036,12 +1050,13 @@ function rPedTb(lista){
     rows+='<td><span class="badge '+(sCls[p.status]||'')+'">'+( sLbl[p.status]||p.status)+'</span></td>';
     rows+='</tr>';
   });
-  tb.innerHTML=rows||'<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--cream4)">Nenhum pedido encontrado.</td></tr>';
+  tb.innerHTML=rows||'<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--cream4)">Nenhum pedido encontrado.</td></tr>';
 }
 
 function verPed(id){
   const p=D.pedidos.find(x=>x.id===id);
-  aM(`Pedido ${p.id}`,`
+  const meta=pedMeta(p);
+  aM(`${p.tipo==='processo'||isFastMalhas(p.fid)?'Processo':'Pedido'} ${meta.nosso||meta.fornecedor||''}`,`
     <div class="fr" style="margin-bottom:14px">
       <div style="background:var(--bg1);border:1px solid var(--br);border-radius:var(--r);padding:11px">
         <div style="font-size:9.5px;color:var(--cream4);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Cliente</div>
@@ -1049,9 +1064,9 @@ function verPed(id){
         <div style="font-size:11px;color:var(--cream4)">${gC(p.cid).cidade||'—'}/${gC(p.cid).uf||'—'} · ${fmtD(p.data)}</div>
       </div>
       <div style="background:var(--bg1);border:1px solid var(--br);border-radius:var(--r);padding:11px">
-        <div style="font-size:9.5px;color:var(--cream4);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Tipo / ID</div>
+        <div style="font-size:9.5px;color:var(--cream4);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Números de referência</div>
         <div style="font-weight:700;color:${p.tipo==='processo'?'#5f9fc4':'var(--gold)'}">${p.tipo==='processo'?'🔧 Processo':'📋 Pedido'}</div>
-        <div style="font-size:11px;color:var(--cream4)">${''?'Nº Forn: '+'':'—'}</div>
+        <div style="font-size:11px;color:var(--cream4)">Nosso: ${meta.nosso||'—'} · Cliente: ${meta.cliente||'—'} · Representada: ${meta.fornecedor||'—'}</div>
       </div>
       <div style="background:var(--bg1);border:1px solid var(--br);border-radius:var(--r);padding:11px">
         <div style="font-size:9.5px;color:var(--cream4);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Representada</div>
@@ -1071,7 +1086,7 @@ function verPed(id){
       <div class="comm-row"><div class="comm-lbl">Peso Total</div><div class="comm-val">${fmtKg(cPeso(p))}</div></div>
       <div class="comm-row"><div class="comm-lbl">Tributação</div><span class="badge ${p.trib?'bggo':'bgb'}">${p.trib?'Tributável':'Não Tributável'}</span></div>
     </div>
-    ${p.obs?`<div style="margin-top:10px;padding:9px 12px;background:var(--gold-bg);border:1px solid var(--gold-br);border-radius:var(--r);font-size:12px;color:var(--gold)">📝 ${p.obs}</div>`:''}`,
+    ${meta.observacao?`<div style="margin-top:10px;padding:9px 12px;background:var(--gold-bg);border:1px solid var(--gold-br);border-radius:var(--r);font-size:12px;color:var(--gold)">📝 ${meta.observacao}</div>`:''}`,
     `<button class="btn btn-out" onclick="editPed('${p.id}')">✏️ Editar</button><button class="btn btn-out" onclick="mudarSt('${p.id}')">Alterar Status</button><button class="btn" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-br);padding:8px 14px;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600" onclick="delPed('${p.id}')">🗑 Excluir</button><button class="btn btn-gold" onclick="fM()">Fechar</button>`,true);
 }
 async function mudarSt(id){
@@ -1157,16 +1172,17 @@ function novoPed(itsPre){
   const cliOpts=[...D.clientes].filter(c=>c.status!=='inativo').sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   const fornOpts=[...D.fornecedores].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(f=>`<option value="${f.id}">${f.nome}</option>`).join('');
   const mesOpts=meses.map(m=>`<option value="${m}">${m}</option>`).join('');
-  const prodOpts=[...D.produtos].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR')).map(p=>`<option value="${p.id}" data-un="${p.un||'un'}">${p.nome}${p.cod?' ('+p.cod+')':''}</option>`).join('');
+  const prodOpts=[...D.produtos].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR')).map(p=>`<option value="${p.id}" data-un="${p.un||'un'}">${p.nome}${p.cod&&!String(p.cod).startsWith('XLS-')?' ('+p.cod+')':''}</option>`).join('');
   const it=Array.isArray(itsPre)&&itsPre.length?itsPre[0]:null;
   aM('Novo Pedido / Processo',`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg"><label>Cliente</label><select class="fi" id="np-cli"><option value="">-- selecione --</option>${cliOpts}</select></div>
       <div class="fg"><label>Representada</label><select class="fi" id="np-fid"><option value="">-- selecione --</option>${fornOpts}</select></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg" style="margin:0"><label>Data Pedido</label><input type="date" class="fi" id="np-data" value="${new Date().toISOString().slice(0,10)}"></div>
-      <div class="fg" style="margin:0"><label>Nº Pedido Fornecedor</label><input type="text" class="fi" id="np-nforn" placeholder="Ex: 8029"></div>
+      <div class="fg" style="margin:0"><label>Nº do Cliente</label><input type="text" class="fi" id="np-ncliente" placeholder="Pedido de compra do cliente"></div>
+      <div class="fg" style="margin:0"><label>Nº Pedido / Processo</label><input type="text" class="fi" id="np-nforn" placeholder="Número da representada"></div>
     </div>
     <div class="fg" style="margin-bottom:10px"><label>Produto</label><select class="fi" id="np-produto" onchange="preenchePuProd()"><option value="">-- selecione produto --</option>${prodOpts}</select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
@@ -1216,6 +1232,7 @@ async function confPed(){
   const pad=n=>String(n).padStart(3,'0');
   const isFM=isFastMalhas(fid);
   const nfornRaw=document.getElementById('np-nforn')?.value?.trim()||'';
+  const ncliente=document.getElementById('np-ncliente')?.value?.trim()||'';
   var id;
   if(isFM&&nfornRaw){
     id='PROC-'+nfornRaw;
@@ -1226,7 +1243,7 @@ async function confPed(){
   const item={pid:prodId||0,qty:qty,pu:pu,mk:0,kg:qty};
   const entrada=document.getElementById('np-entrada')?.value||'';
   const nforn=nfornRaw;
-  const obs=(entrada?'Entrada:'+entrada+' | ':'')+[nforn?'Nº '+nforn:'',prod].filter(Boolean).join(' — ');
+  const obs=[nforn?'Fornecedor: '+nforn:'',ncliente?'Nº Cliente: '+ncliente:'',prod?'Produto: '+prod:'',entrada?'Entrada: '+entrada:'',document.getElementById('np-obs')?.value?.trim()?'Observação: '+document.getElementById('np-obs').value.trim():''].filter(Boolean).join(' | ');
   const ped={
     id,cid,fid,data,
     itens:[item],
@@ -1970,15 +1987,6 @@ function rConfig(){
       </div>
     </div>
 
-    <div class="card">
-      <div class="ch"><div class="ct">Importação Comissão 2026</div></div>
-      <div style="padding:16px 18px">
-        <p style="font-size:13px;color:var(--cream2);margin-bottom:12px">Cadastra e sincroniza as oito representadas, clientes, produtos, pedidos e processos da planilha, sem duplicar uma segunda execução.</p>
-        <button id="btn-import-2026" class="btn btn-gold" onclick="importarComissao2026()">Importar Comissão 2026</button>
-        <div id="import-2026-status" style="font-size:12px;color:var(--cream3);margin-top:10px"></div>
-      </div>
-    </div>
-
     <div style="font-size:11px;color:var(--cream4);text-align:center;margin-top:16px">
       Lexus Representações v2.0 · Dados salvos localmente neste dispositivo · ${new Date().getFullYear()}
     </div>
@@ -2168,7 +2176,7 @@ async function importarComissao2026(){
     for(i=0;i<pack.products.length;i++){
       name=pack.products[i];key=norm(name);
       if(!prods[key]){
-        row={id:nextP++,nome:name,cod:'XLS-'+String(nextP-1).padStart(4,'0'),un:'kg',ficha:'Importado de Comissão 2026',obs:''};
+        row={id:nextP++,nome:name,cod:'PRD-'+String(nextP-1).padStart(4,'0'),un:'kg',ficha:'Cadastro de vendas',obs:''};
         if(await sbUpsert('produtos',row)){D.produtos.push(row);prods[key]=row;}else fail.push('produto '+name);
       }
     }
@@ -2178,9 +2186,9 @@ async function importarComissao2026(){
       var o=pack.orders[i],rep=reps[norm(o.sheet)],cli=clis[norm(o.client)];
       if(!rep||!cli){fail.push('pedido '+o.id+' sem cadastro relacionado');continue;}
       var items=o.items.map(function(x){var pr=prods[norm(x.product)];return{pid:pr.id,qty:+x.qty||0,pu:+x.price||0,kg:+x.qty||0,mk:0};});
-      var marker='Nº '+o.order;
-      var old=D.pedidos.find(function(p){return +p.fid===+rep.id&&+p.cid===+cli.id&&p.data===o.date&&(p.obs||'').indexOf(marker)>=0;});
-      var ped={id:old?old.id:o.id,cid:cli.id,fid:rep.id,data:o.date,itens:items,status:o.status,confirmado:!!o.month,cpct:+o.pct||0,obs:marker+(o.invoice?' · NF '+o.invoice:'')+' · Importado de '+pack.source,trib:o.sheet!=='Bônus',mes_com:o.month||''};
+      var marker='Fornecedor: '+o.order;
+      var old=D.pedidos.find(function(p){var m=pedMeta(p);return +p.fid===+rep.id&&+p.cid===+cli.id&&p.data===o.date&&String(m.fornecedor)===String(o.order);});
+      var ped={id:old?old.id:o.id,cid:cli.id,fid:rep.id,data:o.date,itens:items,status:o.status,confirmado:!!o.month,cpct:+o.pct||0,obs:marker+(o.invoice?' | NF: '+o.invoice:''),trib:o.sheet!=='Bônus',mes_com:o.month||''};
       if(await sbUpsert('pedidos',safePed(ped)))saved++;else fail.push('pedido '+o.id);
       if(i%15===0)set('Salvando pedidos: '+i+' de '+pack.orders.length+'...');
     }
@@ -2333,13 +2341,13 @@ function rProcessos(){
 
   // ── Tabela live (D.pedidos) ──
   h+='<div style="overflow-x:auto;width:100%;margin-bottom:20px"><table style="width:100%;border-collapse:collapse"><thead><tr>';
-  ['ID','Cliente','Data','Peso (kg)','Valor','Comissão','Mês Com.','Status',''].forEach(function(t){
+  ['Nº Processo','Cliente','Data','Peso (kg)','Valor','Comissão','Mês Com.','Status',''].forEach(function(t){
     h+='<th style="text-align:left;padding:10px 14px;font-size:11px;color:var(--cream3);text-transform:uppercase;background:var(--bg3);border-bottom:1px solid var(--br)">'+t+'</th>';
   });
   h+='</tr></thead><tbody id="proc-tb"></tbody></table></div>';
 
   // ── Tabela histórica FM_PROCESSOS (sempre visível) ──
-  h+='<div class="card"><div class="ch"><div class="ct">Histórico Fast Malhas — Planilha <small>'+FM_PROCESSOS.length+' processos</small></div></div>';
+  h+='<div class="card"><div class="ch"><div class="ct">Histórico Fast Malhas <small>'+FM_PROCESSOS.length+' processos</small></div></div>';
   h+='<div style="overflow-x:auto;max-height:450px;overflow-y:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>';
   ['Nº Processo','Cliente','Qtd (kg)','Valor','Comissão','Mês Com.',''].forEach(function(t){
     h+='<th style="text-align:left;padding:8px 12px;font-size:10.5px;color:var(--cream3);text-transform:uppercase;background:var(--bg3);border-bottom:1px solid var(--br);position:sticky;top:0">'+t+'</th>';
@@ -2369,8 +2377,8 @@ function verOuImportarProc(np){
     verPed(ped.id);
   }else{
     aM('Processo '+np,
-      '<p style="color:var(--cream3);font-size:13px;line-height:1.7">Este processo está no histórico da planilha mas ainda não foi importado para o banco de dados.</p><p style="margin-top:10px;color:var(--cream3);font-size:13px">Para editá-lo, vá em <strong style="color:var(--gold)">Configurações → Importar Pedidos da Planilha</strong>. Após importar, ele aparecerá na tabela acima com botão de edição.</p>',
-      '<button class="btn btn-gold" onclick="fM();go(\'config\')">Ir para Configurações</button><button class="btn btn-out" onclick="fM()">Fechar</button>'
+      '<p style="color:var(--cream3);font-size:13px;line-height:1.7">Este processo está disponível no histórico e ainda não possui edição detalhada.</p>',
+      '<button class="btn btn-gold" onclick="fM()">Fechar</button>'
     );
   }
 }
@@ -2429,14 +2437,13 @@ function filtProc(){
   const sCls={'em_producao':'st-em_producao','aguardando':'st-aguardando','faturado':'st-faturado','entregue':'st-entregue','cancelado':'st-cancelado'};
   const lista=D.pedidos.filter(p=>isFastMalhas(p.fid)).filter(p=>{
     const cNome=(gC(p.cid).nome||'').toLowerCase();
-    return(!q||p.id.toLowerCase().includes(q)||cNome.includes(q))&&(!st||st==='_faturar'?(p.status==='aguardando'||p.status==='em_producao'):p.status===st);
+    const m=pedMeta(p);
+    return(!q||[m.fornecedor,m.cliente,m.nosso].join(' ').toLowerCase().includes(q)||cNome.includes(q))&&(!st||st==='_faturar'?(p.status==='aguardando'||p.status==='em_producao'):p.status===st);
   });
   const tb=document.getElementById('proc-tb');if(!tb)return;
   tb.innerHTML=[...lista].sort((a,b)=>(b.data||'').localeCompare(a.data||'')||b.id.localeCompare(a.id)).map(p=>`
     <tr style="border-bottom:1px solid var(--br)">
-      <td style="padding:10px 14px;font-weight:700;color:#5f9fc4;cursor:pointer" onclick="verPed('${p.id}')">${p.id}</td>
-      <td style="padding:10px 14px;font-size:11px;color:var(--cream3)">${(p.obs||'').startsWith('Nº ')?(p.obs.split(' — ')[0]||'').replace('Nº ',''):'—'}</td>
-      <td style="padding:10px 14px;font-size:11px;color:var(--cream3)">${(p.obs||'').startsWith('Nº ')?(p.obs||'').split(' — ')[0].replace('Nº ',''):(p.obs||'').match(/N[º°o]\s*(\w+)/)?.[1]||'—'}</td>
+      <td style="padding:10px 14px;font-weight:700;color:#5f9fc4;cursor:pointer" onclick="verPed('${p.id}')">${pedMeta(p).fornecedor||pedMeta(p).nosso||'—'}</td>
       <td style="padding:10px 14px;cursor:pointer" onclick="verPed('${p.id}')">${gC(p.cid).nome||'—'}</td>
       <td style="padding:10px 14px;color:var(--cream3)">${fmtD(p.data)}</td>
       <td style="padding:10px 14px;color:var(--cream3)">${fmtKg(cPeso(p))}</td>
@@ -2496,7 +2503,7 @@ window.fecharCompetencia=async function(){var comp=window._recComp||isoMonth();i
 
 function importPanel(){return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Importador recorrente</div></div><div class="cb"><p style="color:var(--cream3);font-size:12px">Cada aba é tratada como uma representada. Antes de gravar, o sistema mostra fornecedores, clientes, produtos, pedidos, total e inconsistências.</p><input id="v2-xlsx" class="fi" type="file" accept=".xlsx,.xls,.csv" onchange="previewWorkbook(this)"><div id="v2-preview" style="margin-top:12px"></div></div></div>';}
 var oldRConfig=window.rConfig;
-window.rConfig=function(){if(!isAdmin())return go('dash');oldRConfig();var root=document.getElementById('main');root.insertAdjacentHTML('beforeend',qualityPanel()+importPanel()+auditPanel());};
+window.rConfig=function(){if(!isAdmin())return go('dash');oldRConfig();var root=document.getElementById('main');root.insertAdjacentHTML('beforeend',qualityPanel()+auditPanel());};
 function qualityPanel(){var groups=[['Clientes',duplicateGroups(D.clientes)],['Produtos',duplicateGroups(D.produtos)],['Representadas',duplicateGroups(D.fornecedores)]],total=groups.reduce(function(a,x){return a+x[1].length;},0);return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Qualidade dos dados</div><span class="badge">'+total+' grupos duplicados</span></div><div class="cb">'+groups.map(function(g){return'<div style="margin-bottom:10px"><strong>'+g[0]+'</strong>: '+(g[1].length?g[1].map(function(x){return esc(x.map(function(y){return y.nome;}).join(' / '));}).join('; '):'Nenhuma duplicidade exata normalizada')+'</div>';}).join('')+'</div></div>';}
 function auditPanel(){return'<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Auditoria recente</div></div><div class="tw"><table><thead><tr><th>Data</th><th>Tabela</th><th>Ação</th><th>Registro</th></tr></thead><tbody>'+V2.audit.slice(0,30).map(function(x){return'<tr><td>'+new Date(x.created_at).toLocaleString('pt-BR')+'</td><td>'+esc(x.tabela)+'</td><td>'+esc(x.acao)+'</td><td>'+esc(x.registro_id||'—')+'</td></tr>';}).join('')+'</tbody></table></div></div>';}
 
@@ -2510,7 +2517,7 @@ window.previewWorkbook=async function(input){var box=document.getElementById('v2
 window.executeWorkbookImport=async function(){var pack=window._v2Pack;if(!pack)return;try{var rec=await api('importacoes',{method:'POST',headers:{Prefer:'return=representation'},body:{arquivo:pack.source,status:'processando',resumo:pack.summary}}),imp=rec&&rec[0];window.COMISSAO_2026_IMPORT=pack;await importarComissao2026();if(imp)await api('importacoes',{method:'PATCH',query:'?id=eq.'+imp.id,body:{status:'concluida',finished_at:new Date().toISOString(),resumo:pack.summary}});await loadV2();toast('Importação registrada e concluída.');}catch(e){alert(e.message);}};
 
 var oldRDash=window.rDash;
-window.rDash=function(){oldRDash();var root=document.getElementById('main'),today=Date.now(),stale=D.pedidos.filter(function(p){return !['faturado','entregue','cancelado'].includes(p.status)&&p.data&&(today-new Date(p.data).getTime())>30*86400000;}),lastBuy={};D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data;}).forEach(function(p){if(!lastBuy[p.cid]||p.data>lastBuy[p.cid])lastBuy[p.cid]=p.data;});var inactive=D.clientes.filter(function(c){return c.status!=='inativo'&&(!lastBuy[c.id]||(today-new Date(lastBuy[c.id]).getTime())>90*86400000);});root.insertAdjacentHTML('beforeend','<div class="card" style="margin-top:16px"><div class="ch"><div class="ct">Alertas operacionais</div></div><div class="cb"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px"><div><strong>'+stale.length+'</strong><br><span style="color:var(--cream3)">pedidos parados há mais de 30 dias</span></div><div><strong>'+inactive.length+'</strong><br><span style="color:var(--cream3)">clientes sem compra há 90 dias</span></div><div><strong>'+V2.recebimentos.filter(function(x){return x.status!=='recebido'&&x.vencimento&&new Date(x.vencimento)<new Date();}).length+'</strong><br><span style="color:var(--cream3)">recebimentos vencidos</span></div></div></div></div>');};
+window.rDash=function(){oldRDash();};
 
 var oldVerPed=window.verPed;
 window.verPed=async function(id){oldVerPed(id);try{var rows=await api('anexos',{query:'?select=*&entidade=eq.pedido&entidade_id=eq.'+encodeURIComponent(id)+'&order=created_at.desc'}),modal=document.querySelector('.modal-body,.mb');if(modal)modal.insertAdjacentHTML('beforeend','<div class="fg" style="margin-top:16px"><label>Documentos</label><input type="file" class="fi" accept=".pdf,.png,.jpg,.jpeg,.xlsx" onchange="uploadPedidoFile(\''+esc(id)+'\',this)"><div style="margin-top:8px">'+(rows||[]).map(function(x){return'<div style="padding:6px 0;border-bottom:1px solid var(--br)">'+esc(x.nome)+' <span style="color:var(--cream4)">'+new Date(x.created_at).toLocaleString('pt-BR')+'</span></div>';}).join('')+'</div></div>');}catch(e){console.warn(e.message);}};
