@@ -545,17 +545,22 @@ const cT=p=>{
 };
 // Comissão só conta quando: status=faturado E mes_com definido
 const cC=p=>{
-  if(!p||!['faturado','entregue'].includes(p.status)||!p.mes_com)return 0;
-  return cT(p)*(parseFloat(p.cpct)||3.5)/100;
+  if(!p||!p.mes_com)return 0;
+  var taxa=parseFloat(p.cpct);
+  if(!Number.isFinite(taxa))taxa=3.5;
+  return cT(p)*taxa/100;
 };
 const cCMes=p=>{
-  if(!p||!['faturado','entregue'].includes(p.status)||!p.mes_com)return 0;
-  return cT(p)*(parseFloat(p.cpct)||3.5)/100;
+  if(!p||!p.mes_com)return 0;
+  var taxa=parseFloat(p.cpct);
+  if(!Number.isFinite(taxa))taxa=3.5;
+  return cT(p)*taxa/100;
 };// Comissão pendente (faturado mas sem mês ou ainda não faturado)
 const cCPendente=p=>{
   if(!p||p.status==='cancelado')return 0;
-  if(p.status==='faturado'&&p.mes_com)return 0; // já contou
-  return cT(p)*(p.cpct/100);
+  if(p.mes_com)return 0; // já faturado e previsto
+  var taxa=parseFloat(p.cpct);
+  return cT(p)*(Number.isFinite(taxa)?taxa:3.5)/100;
 };
 const cPeso=p=>{
   if(!p||p.status==='cancelado')return 0;
@@ -716,9 +721,11 @@ function rDash(){
   console.log("Render: rDash");
   const pref=`${ANO_AT}-${String(MES_AT+1).padStart(2,'0')}`;
   const pm=D.pedidos.filter(p=>p.data&&p.data.startsWith(pref)&&p.status!=='cancelado');
-  const fatM=pm.filter(p=>['faturado','entregue'].includes(p.status)).reduce((s,p)=>s+cT(p),0);
-  const comMT=pm.filter(p=>p.trib).reduce((s,p)=>s+cC(p),0);
-  const comMNT=pm.filter(p=>!p.trib).reduce((s,p)=>s+cC(p),0);
+  const fatM=pm.filter(p=>p.mes_com).reduce((s,p)=>s+cT(p),0);
+  const compAtual=String(ANO_AT)+'-'+String(MES_AT+1).padStart(2,'0');
+  const pedidosComMes=D.pedidos.filter(p=>!p.deleted_at&&pedCompetencia(p)===compAtual);
+  const comMT=pedidosComMes.filter(p=>p.trib).reduce((s,p)=>s+cC(p),0);
+  const comMNT=pedidosComMes.filter(p=>!p.trib).reduce((s,p)=>s+cC(p),0);
   const pesoM=pm.reduce((s,p)=>s+cPeso(p),0);
   const pend=D.pedidos.filter(p=>p.status==='pendente').length;
   const hoje=new Date();
@@ -1827,7 +1834,7 @@ function rRel(){
   const _relMc=window._relMesComSel!==undefined?window._relMesComSel:MES_AT;
   const _relRep=D.fornecedores.map(function(f){var v=_sa.porRep[f.id];return{nome:f.nome,fat:v?v.fat[_relMc]||0:0,com:v?v.com[_relMc]||0:0};}).filter(function(x){return x.fat||x.com;}).sort(function(a,b){return b.com-a.com;});
   const _anos=[2024,2025,2026].map(function(a){var ps=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado'&&String(p.data||'').startsWith(String(a));});return{ano:a,vendas:ps.reduce(function(s,p){return s+cT(p);},0),com:ps.reduce(function(s,p){return s+cC(p);},0),pedidos:ps.length,clientes:new Set(ps.map(function(p){return p.cid;})).size};});
-  const relFatAno=D.pedidos.filter(function(p){return p.status==='faturado';}).reduce(function(s,p){return s+cT(p);},0);
+  const relFatAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.mes_com&&p.data&&p.data.startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   var _relFatAno=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&p.data.startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   const porMes=Array.from({length:MES_AT+1},(_,m)=>{
     const px=`${ANO_AT}-${String(m+1).padStart(2,'0')}`;
@@ -2139,7 +2146,7 @@ function statsAnoVigente(){
   // reconhecer a comissão. Fonte única para Dashboard e Comissionamento.
   var fM=Array(12).fill(0),cM=Array(12).fill(0);
   var porRep={};
-  D.pedidos.filter(function(p){var co=pedCompetencia(p);return !p.deleted_at&&['faturado','entregue'].includes(p.status)&&co&&co.startsWith(String(ANO_AT));}).forEach(function(p){
+  D.pedidos.filter(function(p){var co=pedCompetencia(p);return !p.deleted_at&&p.mes_com&&co&&co.startsWith(String(ANO_AT));}).forEach(function(p){
     var co=pedCompetencia(p),mi=(+co.slice(5,7)||0)-1;
     if(mi<0)return;
     var v=cT(p),c=cC(p);
@@ -2314,7 +2321,7 @@ function rComissao(){
   var mc=window._mesComSel!==undefined?window._mesComSel:MES_AT;
   var repsAtivos=D.fornecedores.filter(function(f){return stats.porRep[f.id];}).sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
   var compSel=String(ANO_AT)+'-'+String(mc+1).padStart(2,'0');
-  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0,rec:ps.reduce(function(s,p){return s+(+p.valor_recebido||0);},0),pend:ps.filter(function(p){return !['recebida','conciliada'].includes(p.status_comissao||'prevista');}).length};}).filter(function(x){return x.fat||x.com||x.rec;}).sort(function(a,b){return b.com-a.com;});
+  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0,rec:ps.reduce(function(s,p){return s+((p.status==='pago'||['recebida','conciliada'].includes(p.status_comissao||''))?cC(p):(+p.valor_recebido||0));},0),pend:ps.filter(function(p){return p.status!=='pago'&&!['recebida','conciliada'].includes(p.status_comissao||'prevista');}).length};}).filter(function(x){return x.fat||x.com||x.rec;}).sort(function(a,b){return b.com-a.com;});
   var mxF=Math.max.apply(null,fM)||1;
   var h='';
   h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px">';
@@ -2357,8 +2364,8 @@ function editPed(id){
   const p=D.pedidos.find(x=>x.id===id);if(!p)return;
   const meta=pedMeta(p);
   fM();
-  const statusOpts=['em_producao','aguardando','faturado','entregue','cancelado'];
-  const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','entregue':'Entregue','cancelado':'Cancelado'};
+  const statusOpts=['em_producao','aguardando','faturado','pago','entregue','cancelado'];
+  const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','pago':'Pago','entregue':'Entregue','cancelado':'Cancelado'};
   const it0=(p.itens&&p.itens[0])||{};
   const epQty=parseFloat(it0.qty)||0;
   const epPu=parseFloat(it0.pu)||0;
