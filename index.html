@@ -582,7 +582,7 @@ const ST={pendente:['bggo','Pendente'],aprovado:['bgb','Aprovado'],enviado:['bgg
 const stBadge=s=>{const[c,l]=ST[s]||['bggr',s];return`<span class="badge ${c}">${l}</span>`;};
 
 // Atualiza hist mês atual
-D.hist.at[MES_AT]=D.pedidos.filter(p=>p.data.startsWith(`${ANO_AT}-${String(MES_AT+1).padStart(2,'0')}`)).reduce((s,p)=>s+cT(p),0);
+D.hist.at[MES_AT]=D.pedidos.filter(p=>String(p.data||'').startsWith(`${ANO_AT}-${String(MES_AT+1).padStart(2,'0')}`)).reduce((s,p)=>s+cT(p),0);
 
 function updBadge(){
   const n=D.pedidos.filter(p=>p.status==='pendente').length;
@@ -720,7 +720,7 @@ async function buscarCNPJ(pfx,stId){
 function rDash(){
   console.log("Render: rDash");
   const pref=`${ANO_AT}-${String(MES_AT+1).padStart(2,'0')}`;
-  const pm=D.pedidos.filter(p=>p.data&&p.data.startsWith(pref)&&p.status!=='cancelado');
+  const pm=D.pedidos.filter(p=>p.data&&String(p.data||'').startsWith(pref)&&p.status!=='cancelado');
   const fatM=pm.filter(p=>p.mes_com).reduce((s,p)=>s+cT(p),0);
   const compAtual=String(ANO_AT)+'-'+String(MES_AT+1).padStart(2,'0');
   const pedidosComMes=D.pedidos.filter(p=>!p.deleted_at&&pedCompetencia(p)===compAtual);
@@ -739,7 +739,7 @@ function rDash(){
   const meta=D.cfg.meta_mensal||150000;
   const metaVendMes=D.cfg.meta_vendas||0;
   const px2=ANO_AT+'-'+String(MES_AT+1).padStart(2,'0');
-  const fatMVend=D.pedidos.filter(p=>p.status!=='cancelado'&&p.data&&p.data.startsWith(px2)).reduce((s,p)=>s+cT(p),0);
+  const fatMVend=D.pedidos.filter(p=>p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(px2)).reduce((s,p)=>s+cT(p),0);
   const vendMesPct=metaVendMes>0?Math.min(100,((fatMVend/metaVendMes)*100)).toFixed(1):0;
   const metaVend=D.cfg.meta_vendas||0;
   const vendPct=metaVend>0?Math.min(100,(fatTotal/metaVend*100)).toFixed(1):'—';
@@ -756,7 +756,7 @@ function rDash(){
   });
   // Agregados ANO (para Top rankings — mais representativo)
   const prefA=ANO_AT+'-';
-  const pa=D.pedidos.filter(p=>p.data&&p.data.startsWith(prefA)&&p.status!=='cancelado');
+  const pa=D.pedidos.filter(p=>p.data&&String(p.data||'').startsWith(prefA)&&p.status!=='cancelado');
   const cvA={},fvA={};
   pa.forEach(p=>{cvA[p.cid]=(cvA[p.cid]||0)+cT(p);fvA[p.fid]=(fvA[p.fid]||0)+cT(p);});
   const topP=Object.entries(pvM).sort((a,b)=>b[1]-a[1]).slice(0,5);const mxP=topP[0]?.[1]||1;
@@ -769,7 +769,7 @@ function rDash(){
   var ant2025=Array(12).fill(0);
   var prevY=String(ANO_AT-1);
   // Use D.pedidos for real 2025 entries (IMP with 2025 dates)
-  D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&p.data.startsWith(prevY);}).forEach(function(p){
+  D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(prevY);}).forEach(function(p){
     var mi=new Date(p.data+'T00:00:00').getMonth();
     ant2025[mi]+=cT(p);
   });
@@ -783,21 +783,21 @@ function rDash(){
   // Compute D.hist.at live from current pedidos (monthly 2026 sales)
   D.hist.at=Array.from({length:12},function(_,m){
     var px=String(ANO_AT)+'-'+String(m+1).padStart(2,'0');
-    return D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&p.data.startsWith(px);}).reduce(function(s,p){return s+cT(p);},0);
+    return D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(px);}).reduce(function(s,p){return s+cT(p);},0);
   });
   var mxComp=Math.max.apply(null,ant2025.concat(D.hist.at.slice(0,MES_AT+1)).concat([1]));
 
   // Comissão por mês
   const cMes=Array.from({length:MES_AT+1},(_,m)=>{
     const px=`${ANO_AT}-${String(m+1).padStart(2,'0')}`;
-    const mp=D.pedidos.filter(p=>p.data.startsWith(px));
+    const mp=D.pedidos.filter(p=>String(p.data||'').startsWith(px));
     return{t:mp.filter(p=>p.trib).reduce((s,p)=>s+cC(p),0),nt:mp.filter(p=>!p.trib).reduce((s,p)=>s+cC(p),0)};
   });
   const mxCom=Math.max(...cMes.map(x=>x.t+x.nt),1);
 
   // Total de Vendas: apenas pedidos PED- (entrados manualmente) + PROC- no ano
   var fatTotal=D.pedidos.filter(function(p){
-    return p.status!=='cancelado'&&p.data&&p.data.startsWith(String(ANO_AT));
+    return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(String(ANO_AT));
   }).reduce(function(s,p){return s+cT(p);},0);
   var _stats=statsAnoVigente();
   var _pa={fat:_stats.fatAno,com:_stats.comAno};
@@ -1834,23 +1834,23 @@ function rRel(){
   const _relMc=window._relMesComSel!==undefined?window._relMesComSel:MES_AT;
   const _relRep=D.fornecedores.map(function(f){var v=_sa.porRep[f.id];return{nome:f.nome,fat:v?v.fat[_relMc]||0:0,com:v?v.com[_relMc]||0:0};}).filter(function(x){return x.fat||x.com;}).sort(function(a,b){return b.com-a.com;});
   const _anos=[2024,2025,2026].map(function(a){var ps=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado'&&String(p.data||'').startsWith(String(a));});return{ano:a,vendas:ps.reduce(function(s,p){return s+cT(p);},0),com:ps.reduce(function(s,p){return s+cC(p);},0),pedidos:ps.length,clientes:new Set(ps.map(function(p){return p.cid;})).size};});
-  const relFatAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.mes_com&&p.data&&p.data.startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
-  var _relFatAno=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&p.data.startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
+  const relFatAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.mes_com&&p.data&&String(p.data||'').startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
+  var _relFatAno=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   const porMes=Array.from({length:MES_AT+1},(_,m)=>{
     const px=`${ANO_AT}-${String(m+1).padStart(2,'0')}`;
-    const mp=D.pedidos.filter(p=>p.data.startsWith(px));
+    const mp=D.pedidos.filter(p=>String(p.data||'').startsWith(px));
     return{m,fat:mp.reduce((s,p)=>s+cT(p),0),com:mp.reduce((s,p)=>s+cC(p),0),comT:mp.filter(p=>p.trib).reduce((s,p)=>s+cC(p),0),comNT:mp.filter(p=>!p.trib).reduce((s,p)=>s+cC(p),0),qtd:mp.length,peso:mp.reduce((s,p)=>s+cPeso(p),0)};
   });
   const mxFat=Math.max(...porMes.map(x=>x.fat),1);
 
   // Top clientes ano
-  const tcA={};D.pedidos.filter(p=>p.data.startsWith(String(ANO_AT))).forEach(p=>{if(!tcA[p.cid])tcA[p.cid]={v:0,n:0};tcA[p.cid].v+=cT(p);tcA[p.cid].n++;});
+  const tcA={};D.pedidos.filter(p=>String(p.data||'').startsWith(String(ANO_AT))).forEach(p=>{if(!tcA[p.cid])tcA[p.cid]={v:0,n:0};tcA[p.cid].v+=cT(p);tcA[p.cid].n++;});
   const topCA=Object.entries(tcA).sort((a,b)=>b[1].v-a[1].v).slice(0,6);const mxCA=topCA[0]?.[1].v||1;
   // Top produtos ano
-  const tpA={};D.pedidos.filter(p=>p.data.startsWith(String(ANO_AT))).forEach(p=>p.itens.forEach(i=>{tpA[i.pid]=(tpA[i.pid]||0)+i.qty;}));
+  const tpA={};D.pedidos.filter(p=>String(p.data||'').startsWith(String(ANO_AT))).forEach(p=>p.itens.forEach(i=>{tpA[i.pid]=(tpA[i.pid]||0)+i.qty;}));
   const topPA=Object.entries(tpA).sort((a,b)=>b[1]-a[1]).slice(0,6);const mxPA=topPA[0]?.[1]||1;
   // Top representadas ano
-  const tfA={};D.pedidos.filter(p=>p.data.startsWith(String(ANO_AT))).forEach(p=>{tfA[p.fid]=(tfA[p.fid]||0)+cT(p);});
+  const tfA={};D.pedidos.filter(p=>String(p.data||'').startsWith(String(ANO_AT))).forEach(p=>{tfA[p.fid]=(tfA[p.fid]||0)+cT(p);});
   const topFA=Object.entries(tfA).sort((a,b)=>b[1]-a[1]).slice(0,4);const mxFA=topFA[0]?.[1]||1;
 
   const fatT=D.pedidos.reduce((s,p)=>s+cT(p),0);
@@ -1944,7 +1944,7 @@ function rRecebimentos(){
   var totFat=pedsFil.reduce(function(s,p){return s+cT(p);},0);
   var totComT=pedsFil.filter(function(p){return p.trib;}).reduce(function(s,p){return s+cC(p);},0);
   var totComNT=pedsFil.filter(function(p){return !p.trib;}).reduce(function(s,p){return s+cC(p);},0);
-  var fatAnoRec=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&p.data.startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
+  var fatAnoRec=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
 
   // Group by forn
   var byForn={};
