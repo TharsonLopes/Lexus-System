@@ -2234,6 +2234,8 @@ async function importarComissao2026(){
   if(!pack){alert('Arquivo import-data.js não encontrado. Mantenha-o na mesma pasta do index.html.');return;}
   if(!confirm('Importar '+pack.summary.orders+' pedidos/processos de '+pack.suppliers.length+' representadas? A operação pode ser executada novamente sem duplicar os IDs gerados.'))return;
   var norm=function(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/\s+/g,' ');};
+  var clientAliases={'auvo':'auvo moda intima ltda','be bless':'be bless comercio de roupas e acessorios ltda','belle fascinio':'belle fascino moda intima ltda','belle fascinio lingerie':'belle fascino lingerie ltda','belle sensi':'belle sensi lingerie ltda','br acessorios':'br acessorios intimos ltda','d\'bellus':"+JSON.stringify("d'bellus industria e comercio ltda")+",'eme modas':'eme modas ltda','entrelinhas':'entrelinhas confeccao e comercio de tecidos e aviamentos ltda','entrelinhas (bonus)':'entrelinhas confeccao e comercio de tecidos e aviamentos ltda','f7 new style':'f7 new style comercio de nova friburgo ltda','feitosa & melo':'feitosa & melo confeccoes ltda','gabriel':'gabriel rodrigues mafort','gabriel rodrigues':'gabriel rodrigues mafort','gbriel rodrigues':'gabriel rodrigues mafort','gt moda intima':'gt moda intima ltda','joia':'joia intima lingerie ltda','joia intima':'joia intima lingerie ltda','kelly cristina':'kelly cristina hottz abreu modas comercio de roupas e acessorios','mauricio':'mauricio velberto de siqueira','mavique':'mavique modas lingerie ltda','miranda e fraga':'miranda fraga industria e comercio ltda.','ms fabulosa':'ms fabulosa moda intima ltda','novamoon':'novamoon modas ltda','siqueira':'siqueira comercio de artigos do vestuario ltda','time fitness':'time fitness nf comercio ltda','wwa':'wwa confeccoes ltda'};
+  var clientKey=function(v){var k=norm(v);return clientAliases[k]||k;};
   var set=function(msg){if(st)st.textContent=msg;};
   var fail=[];
   if(btn)btn.disabled=true;
@@ -2245,7 +2247,7 @@ async function importarComissao2026(){
     var nextP=Math.max(0,...D.produtos.map(function(x){return +x.id||0;}))+1;
     var reps={},clis={},prods={};
     D.fornecedores.forEach(function(x){reps[norm(x.nome)]=x;});
-    D.clientes.forEach(function(x){clis[norm(x.nome)]=x;});
+    D.clientes.forEach(function(x){clis[clientKey(x.nome)]=x;});
     D.produtos.forEach(function(x){prods[norm(x.nome)]=x;});
 
     for(var i=0;i<pack.suppliers.length;i++){
@@ -2257,7 +2259,7 @@ async function importarComissao2026(){
       }
     }
     for(i=0;i<pack.clients.length;i++){
-      name=pack.clients[i];key=norm(name);
+      name=pack.clients[i];key=clientKey(name);
       if(!clis[key]){
         row={id:nextC++,nome:name,cnpj:'',email:'',tel:'',cidade:'',uf:'',seg:'Geral',gid:null,status:'ativo'};
         if(await sbUpsert('clientes',row)){D.clientes.push(row);clis[key]=row;}else fail.push('cliente '+name);
@@ -2273,7 +2275,7 @@ async function importarComissao2026(){
 
     var saved=0;
     for(i=0;i<pack.orders.length;i++){
-      var o=pack.orders[i],rep=reps[norm(o.sheet)],cli=clis[norm(o.client)];
+      var o=pack.orders[i],rep=reps[norm(o.sheet)],cli=clis[clientKey(o.client)];
       if(!rep||!cli){fail.push('pedido '+o.id+' sem cadastro relacionado');continue;}
       var items=o.items.map(function(x){var pr=prods[norm(x.product)];return{pid:pr.id,qty:+x.qty||0,pu:+x.price||0,kg:+x.qty||0,mk:0};});
       var marker='Fornecedor: '+o.order;
