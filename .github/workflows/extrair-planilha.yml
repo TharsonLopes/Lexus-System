@@ -1,0 +1,68 @@
+name: Extrair planilha de comissões
+
+on:
+  push:
+    paths:
+      - 'planilhas/*.xlsx'
+
+permissions:
+  contents: write
+
+jobs:
+  extrair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar leitor XLSX
+        run: pip install openpyxl
+      - name: Extrair abas e células
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from openpyxl import load_workbook
+
+          files = sorted(pathlib.Path("planilhas").glob("*.xlsx"), key=lambda p: p.stat().st_mtime)
+          if not files:
+              raise SystemExit("Nenhuma planilha .xlsx encontrada")
+          source = files[-1]
+          wb_values = load_workbook(source, data_only=True, read_only=True)
+          wb_formulas = load_workbook(source, data_only=False, read_only=True)
+
+          def value(v):
+              if isinstance(v, (datetime.datetime, datetime.date, datetime.time)):
+                  return v.isoformat()
+              return v
+
+          sheets = []
+          for ws in wb_values.worksheets:
+              wf = wb_formulas[ws.title]
+              rows = []
+              for vr, fr in zip(ws.iter_rows(), wf.iter_rows()):
+                  cells = []
+                  for vc, fc in zip(vr, fr):
+                      cells.append({"value": value(vc.value), "formula": fc.value if isinstance(fc.value, str) and fc.value.startswith("=") else None})
+                  while cells and cells[-1]["value"] is None and cells[-1]["formula"] is None:
+                      cells.pop()
+                  if cells:
+                      rows.append(cells)
+              sheets.append({"name": ws.title, "rows": rows})
+
+          output = {
+              "source": source.name,
+              "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "sheets": sheets
+          }
+          pathlib.Path("planilhas/planilha-extraida.json").write_text(
+              json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          PY
+      - name: Publicar extração
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add planilhas/planilha-extraida.json
+          git diff --cached --quiet || git commit -m "data: extrai planilha de comissões"
+          git push
