@@ -2321,7 +2321,7 @@ function rComissao(){
   var mc=window._mesComSel!==undefined?window._mesComSel:MES_AT;
   var repsAtivos=D.fornecedores.filter(function(f){return stats.porRep[f.id];}).sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
   var compSel=String(ANO_AT)+'-'+String(mc+1).padStart(2,'0');
-  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0,rec:ps.reduce(function(s,p){return s+((p.status==='pago'||['recebida','conciliada'].includes(p.status_comissao||''))?cC(p):(+p.valor_recebido||0));},0),pend:ps.filter(function(p){return p.status!=='pago'&&!['recebida','conciliada'].includes(p.status_comissao||'prevista');}).length};}).filter(function(x){return x.fat||x.com||x.rec;}).sort(function(a,b){return b.com-a.com;});
+  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0,rec:ps.reduce(function(s,p){return s+(p.status==='pago'?cC(p):0);},0),pend:ps.filter(function(p){return p.status!=='pago';}).length};}).filter(function(x){return x.fat||x.com||x.rec;}).sort(function(a,b){return b.com-a.com;});
   var mxF=Math.max.apply(null,fM)||1;
   var h='';
   h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px">';
