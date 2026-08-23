@@ -1305,6 +1305,15 @@ async function savePed(id){
   p.status_comissao=document.getElementById('ep-stcom')?.value||p.status_comissao||'prevista';
   p.valor_recebido=+document.getElementById('ep-vrec')?.value||0;
   p.recebido_em=document.getElementById('ep-drec')?.value||null;
+  // Pagamento do fornecedor (p.status) e recebimento da comissão são conceitos independentes.
+  if(!_epComp){
+    p.status_comissao='prevista';p.valor_recebido=0;p.recebido_em=null;
+  }else if(['recebida','conciliada'].includes(p.status_comissao)){
+    if(p.valor_recebido<=0)p.valor_recebido=cC(p);
+    if(!p.recebido_em)p.recebido_em=new Date().toISOString().slice(0,10);
+  }else if(p.valor_recebido<=0){
+    p.valor_recebido=0;p.recebido_em=null;
+  }
   const epQty2=parseFloat(document.getElementById('ep-qty')?.value)||0;
   const epPu2=parseFloat(document.getElementById('ep-pu')?.value)||0;
   if(epQty2>0&&epPu2>0){
@@ -2331,7 +2340,7 @@ function rComissao(){
   var mc=window._mesComSel!==undefined?window._mesComSel:MES_AT;
   var repsAtivos=D.fornecedores.filter(function(f){return stats.porRep[f.id];}).sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
   var compSel=String(ANO_AT)+'-'+String(mc+1).padStart(2,'0');
-  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0,rec:ps.reduce(function(s,p){return s+(p.status==='pago'?cC(p):0);},0),pend:ps.filter(function(p){return p.status!=='pago';}).length};}).filter(function(x){return x.fat||x.com||x.rec;}).sort(function(a,b){return b.com-a.com;});
+  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0,rec:ps.reduce(function(s,p){var vr=+p.valor_recebido||0;if(!vr&&['recebida','conciliada'].includes(p.status_comissao||''))vr=cC(p);return s+vr;},0),pend:ps.filter(function(p){var vr=+p.valor_recebido||0;if(!vr&&['recebida','conciliada'].includes(p.status_comissao||''))vr=cC(p);return vr+0.005<cC(p);}).length};}).filter(function(x){return x.fat||x.com||x.rec;}).sort(function(a,b){return b.com-a.com;});
   var mxF=Math.max.apply(null,fM)||1;
   var h='';
   h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px">';
@@ -2375,7 +2384,7 @@ function editPed(id){
   const meta=pedMeta(p);
   fM();
   const statusOpts=['em_producao','aguardando','faturado','pago','entregue','cancelado'];
-  const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','pago':'Pago','entregue':'Entregue','cancelado':'Cancelado'};
+  const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','pago':'Pago ao fornecedor','entregue':'Entregue','cancelado':'Cancelado'};
   const it0=(p.itens&&p.itens[0])||{};
   const epQty=parseFloat(it0.qty)||0;
   const epPu=parseFloat(it0.pu)||0;
