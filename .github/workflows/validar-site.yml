@@ -1,0 +1,36 @@
+name: Validar site
+
+on:
+  push:
+    paths:
+      - 'index.html'
+      - 'app-v2.js'
+      - 'crm-planejamento.js'
+      - 'import-data.js'
+      - '.github/workflows/validar-site.yml'
+  workflow_dispatch:
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar JavaScript externo
+        run: |
+          node --check app-v2.js
+          node --check crm-planejamento.js
+          node --check import-data.js
+      - name: Verificar JavaScript do HTML
+        run: |
+          python - <<'PY'
+          import re, pathlib
+          html = pathlib.Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)</script>', html, flags=re.I)
+          code = "\n;\n".join(scripts)
+          pathlib.Path("/tmp/lexus-inline.js").write_text(code, encoding="utf-8")
+          print(f"{len(scripts)} blocos JavaScript internos encontrados")
+          PY
+          node --check /tmp/lexus-inline.js
