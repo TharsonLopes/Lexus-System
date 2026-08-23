@@ -1410,7 +1410,7 @@ async function svProd(){
   };
   if(!obj.nome){alert('Informe o nome do produto.');return;}
   obj.id=id||Math.max(0,...D.produtos.map(x=>+x.id||0))+1;
-  if(!await sbUpsert('produtos',obj)){alert('Erro ao salvar produto no Supabase.');return;}
+  if(!await sbUpsert('produtos',obj)){var motivo=window._lastSbError||'Não foi possível gravar os dados.';alert('Erro ao salvar produto no Supabase.\\n\\n'+motivo+'\\n\\nSe a sessão expirou, entre novamente e tente salvar.');return;}
   await sbLoad();fM();rProd();
 }
 
@@ -2178,18 +2178,29 @@ async function sbPatch(t,id,row){
   }catch(e){console.error('sbPatch EXC',e);return false;}
 }
 async function sbUpsert(t,row){
+  window._lastSbError='';
   try{
-    var h2=Object.assign({},SB_H,{'Prefer':'resolution=merge-duplicates,return=minimal'});
-    var r=await fetch(SB_URL+'/rest/v1/'+t,{method:'POST',headers:h2,body:JSON.stringify(row)});
+    var makeHeaders=function(){return Object.assign({},SB_H,{'Prefer':'resolution=merge-duplicates,return=minimal'});};
+    var url=SB_URL+'/rest/v1/'+t;
+    var options=function(){return{method:'POST',headers:makeHeaders(),body:JSON.stringify(row)};};
+    var r=await fetch(url,options());
+    // As telas podem ficar abertas por horas. Renove a sessão e repita sem perder o formulário.
+    if(r.status===401&&typeof refreshSession==='function'&&await refreshSession()){
+      r=await fetch(url,options());
+    }
     if(!r.ok){
       var err=await r.text();
-      console.error('sbUpsert ERRO ['+t+'] '+r.status+':', err);
-      if(typeof dbgMsg==='function')dbgMsg('ERRO Supabase ['+t+'] '+r.status+': '+err.slice(0,100),'erro');
+      var detail=err;
+      try{var parsed=JSON.parse(err);detail=parsed.message||parsed.details||parsed.hint||err;}catch(_){}
+      window._lastSbError=detail||('HTTP '+r.status);
+      console.error('sbUpsert ERRO ['+t+'] '+r.status+':',err);
+      if(typeof dbgMsg==='function')dbgMsg('ERRO Supabase ['+t+'] '+r.status+': '+String(detail).slice(0,140),'erro');
     }
     return r.ok;
   }catch(e){
+    window._lastSbError=e&&e.message?e.message:'Falha de rede';
     console.error('sbUpsert EXCEPTION:',e);
-    if(typeof dbgMsg==='function')dbgMsg('ERRO rede: '+e.message,'erro');
+    if(typeof dbgMsg==='function')dbgMsg('ERRO rede: '+window._lastSbError,'erro');
     return false;
   }
 }
