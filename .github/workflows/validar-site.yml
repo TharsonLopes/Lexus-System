@@ -10,6 +10,9 @@ on:
       - '.github/workflows/validar-site.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   validar:
     runs-on: ubuntu-latest
@@ -34,3 +37,11 @@ jobs:
           print(f"{len(scripts)} blocos JavaScript internos encontrados")
           PY
           node --check /tmp/lexus-inline.js
+      - name: Registrar validação concluída
+        run: |
+          printf '{"commit":"%s","status":"ok","validated_at":"%s"}\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > validacao-site.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add validacao-site.json
+          git commit -m "ci: registrar validação do site"
+          git push
