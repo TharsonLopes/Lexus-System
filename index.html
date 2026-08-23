@@ -799,9 +799,7 @@ function rDash(){
   const mxCom=Math.max(...cMes.map(x=>x.t+x.nt),1);
 
   // Total de Vendas: apenas pedidos PED- (entrados manualmente) + PROC- no ano
-  var fatTotal=D.pedidos.filter(function(p){
-    return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(String(ANO_AT));
-  }).reduce(function(s,p){return s+cT(p);},0);
+  var fatTotal=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado';}).reduce(function(s,p){return s+cT(p);},0);
   var _stats=statsAnoVigente();
   var _pa={fat:_stats.fatAno,com:_stats.comAno};
   var _nM=_stats.nMfat;var _mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][new Date().getMonth()];var _pm=planilhaMes(_mn);
@@ -841,9 +839,9 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
   <!-- STAT CARDS — user-defined order -->
   <div class="sg" style="margin-bottom:18px">
     <!-- 0. Total de Vendas Ano -->
-    <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Total de Vendas ${ANO_AT}</div><div class="sv">${fmt(fatTotal)}</div><div class="st up">PED + PROC · ano vigente</div></div>
+    <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Total de Vendas ${ANO_AT}</div><div class="sv">${fmt(fatTotal)}</div><div class="st up">Base reconciliada · Comissão 2026</div></div>
     <!-- 1. Faturamento Total ANO -->
-    <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento Total ${ANO_AT}</div><div class="sv">${fmt(_pa.fat)}</div><div class="st up">Ano vigente · Supabase</div></div>
+    <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento Total ${ANO_AT}</div><div class="sv">${fmt(_pa.fat)}</div><div class="st up">Pedidos com mês a receber</div></div>
     <!-- 2. Média Mensal -->
     <div class="stat"><div class="si sib"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div><div class="sl">Média Mensal</div><div class="sv">${fmt(_pa.fat/_nM)}</div><div class="st neu">${_nM} meses com dados</div></div>
     <!-- 3. Comissão Total 2026 -->
