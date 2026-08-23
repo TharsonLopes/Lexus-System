@@ -1,0 +1,22 @@
+[
+  {
+    "source": "Comissão 2026 (1).xlsx",
+    "output": "extraido-comissao-2026-1.json",
+    "sheets": 10
+  },
+  {
+    "source": "Comissões 2025 (1).xlsx",
+    "output": "extraido-comissoes-2025-1.json",
+    "sheets": 8
+  },
+  {
+    "source": "Controle de Comissão - 2024.xlsx",
+    "output": "extraido-controle-de-comissao-2024.json",
+    "sheets": 5
+  },
+  {
+    "source": "Controle de comissão - 2023.xlsx",
+    "output": "extraido-controle-de-comissao-2023.json",
+    "sheets": 5
+  }
+]
