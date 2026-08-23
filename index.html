@@ -549,16 +549,13 @@ const cT=p=>{
 // Comissão só conta quando: status=faturado E mes_com definido
 const cC=p=>{
   if(!p||!p.mes_com)return 0;
+  var gravada=parseFloat(p.valor_comissao);
+  if(Number.isFinite(gravada))return gravada;
   var taxa=parseFloat(p.cpct);
   if(!Number.isFinite(taxa))taxa=3.5;
-  return cT(p)*taxa/100;
+  return Math.round((cT(p)*taxa/100)*100)/100;
 };
-const cCMes=p=>{
-  if(!p||!p.mes_com)return 0;
-  var taxa=parseFloat(p.cpct);
-  if(!Number.isFinite(taxa))taxa=3.5;
-  return cT(p)*taxa/100;
-};// Comissão pendente (faturado mas sem mês ou ainda não faturado)
+const cCMes=p=>cC(p);// Comissão pendente (faturado mas sem mês ou ainda não faturado)
 const cCPendente=p=>{
   if(!p||p.status==='cancelado')return 0;
   if(p.mes_com)return 0; // já faturado e previsto
