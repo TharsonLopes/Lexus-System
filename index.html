@@ -1829,7 +1829,7 @@ function rRel(){
   const _histAnos=(D.historicoAnual||[]).map(function(h){return{ano:h.ano,vendas:+h.vendas_total||0,com:+h.comissao_total||0,pedidos:+h.linhas||0,clientes:+h.clientes||0,origem:h.arquivo_origem};});
   const _psAtual=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado';});
   const _atual={ano:ANO_AT,vendas:_psAtual.reduce(function(s,p){return s+cT(p);},0),com:_psAtual.reduce(function(s,p){return s+cC(p);},0),pedidos:_psAtual.length,clientes:new Set(_psAtual.map(function(p){return p.cid;})).size,origem:'Sistema reconciliado'};
-  const _anos=_histAnos.filter(function(x){return x.ano!==ANO_AT;}).concat([_atual]).sort(function(a,b){return a.ano-b.ano;});return{ano:a,vendas:ps.reduce(function(s,p){return s+cT(p);},0),com:ps.reduce(function(s,p){return s+cC(p);},0),pedidos:ps.length,clientes:new Set(ps.map(function(p){return p.cid;})).size};});
+  const _anos=_histAnos.filter(function(x){return x.ano!==ANO_AT;}).concat([_atual]).sort(function(a,b){return a.ano-b.ano;});
   const relFatAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.mes_com&&p.data&&String(p.data||'').startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   var _relFatAno=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   const porMes=Array.from({length:MES_AT+1},(_,m)=>{
