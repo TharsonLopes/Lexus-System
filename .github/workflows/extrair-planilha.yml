@@ -1,9 +1,11 @@
-name: Extrair planilha de comissões
+name: Extrair planilhas de comissões
 
 on:
   push:
     paths:
       - 'planilhas/*.xlsx'
+      - '.github/workflows/extrair-planilha.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,51 +20,63 @@ jobs:
           python-version: '3.12'
       - name: Instalar leitor XLSX
         run: pip install openpyxl
-      - name: Extrair abas e células
+      - name: Extrair abas e células de cada arquivo
         run: |
           python - <<'PY'
-          import json, pathlib, datetime
+          import json, pathlib, datetime, re, unicodedata
           from openpyxl import load_workbook
 
-          files = sorted(pathlib.Path("planilhas").glob("*.xlsx"), key=lambda p: p.stat().st_mtime)
+          files = sorted(pathlib.Path("planilhas").glob("*.xlsx"))
           if not files:
               raise SystemExit("Nenhuma planilha .xlsx encontrada")
-          source = files[-1]
-          wb_values = load_workbook(source, data_only=True, read_only=True)
-          wb_formulas = load_workbook(source, data_only=False, read_only=True)
 
           def value(v):
               if isinstance(v, (datetime.datetime, datetime.date, datetime.time)):
                   return v.isoformat()
               return v
 
-          sheets = []
-          for ws in wb_values.worksheets:
-              wf = wb_formulas[ws.title]
-              rows = []
-              for vr, fr in zip(ws.iter_rows(), wf.iter_rows()):
-                  cells = []
-                  for vc, fc in zip(vr, fr):
-                      cells.append({"value": value(vc.value), "formula": fc.value if isinstance(fc.value, str) and fc.value.startswith("=") else None})
-                  while cells and cells[-1]["value"] is None and cells[-1]["formula"] is None:
-                      cells.pop()
-                  if cells:
-                      rows.append(cells)
-              sheets.append({"name": ws.title, "rows": rows})
+          def slug(name):
+              plain = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+              return re.sub(r"[^a-z0-9]+", "-", plain.lower()).strip("-")
 
-          output = {
-              "source": source.name,
-              "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-              "sheets": sheets
-          }
-          pathlib.Path("planilhas/planilha-extraida.json").write_text(
-              json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
+          manifest = []
+          for source in files:
+              wb_values = load_workbook(source, data_only=True, read_only=True)
+              wb_formulas = load_workbook(source, data_only=False, read_only=True)
+              sheets = []
+              for ws in wb_values.worksheets:
+                  wf = wb_formulas[ws.title]
+                  rows = []
+                  for vr, fr in zip(ws.iter_rows(), wf.iter_rows()):
+                      cells = []
+                      for vc, fc in zip(vr, fr):
+                          cells.append({
+                              "value": value(vc.value),
+                              "formula": fc.value if isinstance(fc.value, str) and fc.value.startswith("=") else None
+                          })
+                      while cells and cells[-1]["value"] is None and cells[-1]["formula"] is None:
+                          cells.pop()
+                      if cells:
+                          rows.append(cells)
+                  sheets.append({"name": ws.title, "rows": rows})
+
+              output = {
+                  "source": source.name,
+                  "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                  "sheets": sheets
+              }
+              target = pathlib.Path("planilhas") / f"extraido-{slug(source.stem)}.json"
+              target.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+              manifest.append({"source": source.name, "output": target.name, "sheets": len(sheets)})
+
+          pathlib.Path("planilhas/manifesto-extracoes.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
           )
           PY
-      - name: Publicar extração
+      - name: Publicar extrações
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add planilhas/planilha-extraida.json
-          git diff --cached --quiet || git commit -m "data: extrai planilha de comissões"
+          git add planilhas/extraido-*.json planilhas/manifesto-extracoes.json
+          git diff --cached --quiet || git commit -m "data: extrai todas as planilhas de comissões"
           git push
