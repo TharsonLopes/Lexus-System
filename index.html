@@ -498,7 +498,7 @@ var PLANILHA={};
 const D={
   produtos:[],clientes:[],pedidos:[],fornecedores:[],grupos:[],
   nxt:{p:1,c:1,f:1,ped:1,g:1},
-  hist:{ant:[3272868,446513,596502,1161726,421462,749088,807164,1639216,573028,533069,766452,1216232],at:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  hist:{ant:[0,0,0,0,0,0,0,0,0,0,0,0],at:[0,0,0,0,0,0,0,0,0,0,0,0]},historicoAnual:[],
   cfg:{meta_mensal:150000,meta_vendas:200000,nome_exib:'Administrador'},
 };
 
@@ -769,24 +769,16 @@ function rDash(){
   // Comparativo
   const vis=MES.slice(0,MES_AT+1);
   
-  var ant2025=Array(12).fill(0);
-  var prevY=String(ANO_AT-1);
-  // Use D.pedidos for real 2025 entries (IMP with 2025 dates)
-  D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(prevY);}).forEach(function(p){
-    var mi=new Date(p.data+'T00:00:00').getMonth();
-    ant2025[mi]+=cT(p);
+  var prevY=ANO_AT-1;
+  var histPrev=(D.historicoAnual||[]).find(function(h){return h.ano===prevY;});
+  var ant2025=Array.from({length:12},function(_,m){
+    var item=histPrev&&histPrev.mensal&&histPrev.mensal[m];
+    return Array.isArray(item)?(+item[0]||0):0;
   });
-  // Supplement with IMPORT_PEDIDOS non-FM 2025 data (more complete than DB)
-  (IMPORT_PEDIDOS||[]).filter(function(r){return r.data&&r.data.startsWith(prevY)&&!r.isFM;}).forEach(function(r){
-    var mi=new Date(r.data+'T00:00:00').getMonth();
-    // Only add if not already in D.pedidos (avoid double count)
-    var alreadyIn=D.pedidos.find(function(p){return p.data===r.data&&(gC(p.cid).nome||'').toLowerCase()===r.cliente.toLowerCase()&&!r.isFM;});
-    if(!alreadyIn)ant2025[mi]+=r.valor;
-  });
-  // Compute D.hist.at live from current pedidos (monthly 2026 sales)
+  // Comparação equivalente: somente pedidos com mês de comissão informado (faturados).
   D.hist.at=Array.from({length:12},function(_,m){
     var px=String(ANO_AT)+'-'+String(m+1).padStart(2,'0');
-    return D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(px);}).reduce(function(s,p){return s+cT(p);},0);
+    return D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado'&&pedCompetencia(p)===px;}).reduce(function(s,p){return s+cT(p);},0);
   });
   var mxComp=Math.max.apply(null,ant2025.concat(D.hist.at.slice(0,MES_AT+1)).concat([1]));
 
@@ -882,7 +874,7 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
   <!-- COMPARISON CHART -->
   <div class="card" style="margin-bottom:14px">
     <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-      <b>Comparativo Mensal</b>
+      <b>Comparativo de Faturamento Mensal</b>
       <small style="color:var(--cream4)">${ANO_AT-1} vs ${ANO_AT}</small>
     </div>
     <div style="padding:14px 18px 6px">
@@ -1834,7 +1826,10 @@ function rRel(){
   const _sa=statsAnoVigente();
   const _relMc=window._relMesComSel!==undefined?window._relMesComSel:MES_AT;
   const _relRep=D.fornecedores.map(function(f){var v=_sa.porRep[f.id];return{nome:f.nome,fat:v?v.fat[_relMc]||0:0,com:v?v.com[_relMc]||0:0};}).filter(function(x){return x.fat||x.com;}).sort(function(a,b){return b.com-a.com;});
-  const _anos=[2024,2025,2026].map(function(a){var ps=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado'&&String(p.data||'').startsWith(String(a));});return{ano:a,vendas:ps.reduce(function(s,p){return s+cT(p);},0),com:ps.reduce(function(s,p){return s+cC(p);},0),pedidos:ps.length,clientes:new Set(ps.map(function(p){return p.cid;})).size};});
+  const _histAnos=(D.historicoAnual||[]).map(function(h){return{ano:h.ano,vendas:+h.vendas_total||0,com:+h.comissao_total||0,pedidos:+h.linhas||0,clientes:+h.clientes||0,origem:h.arquivo_origem};});
+  const _psAtual=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado';});
+  const _atual={ano:ANO_AT,vendas:_psAtual.reduce(function(s,p){return s+cT(p);},0),com:_psAtual.reduce(function(s,p){return s+cC(p);},0),pedidos:_psAtual.length,clientes:new Set(_psAtual.map(function(p){return p.cid;})).size,origem:'Sistema reconciliado'};
+  const _anos=_histAnos.filter(function(x){return x.ano!==ANO_AT;}).concat([_atual]).sort(function(a,b){return a.ano-b.ano;});return{ano:a,vendas:ps.reduce(function(s,p){return s+cT(p);},0),com:ps.reduce(function(s,p){return s+cC(p);},0),pedidos:ps.length,clientes:new Set(ps.map(function(p){return p.cid;})).size};});
   const relFatAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.mes_com&&p.data&&String(p.data||'').startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   var _relFatAno=D.pedidos.filter(function(p){return p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(String(ANO_AT));}).reduce(function(s,p){return s+cT(p);},0);
   const porMes=Array.from({length:MES_AT+1},(_,m)=>{
@@ -2203,7 +2198,7 @@ async function sbDelete(t,id){try{var r=await fetch(SB_URL+'/rest/v1/'+t+'?id=eq
 async function sbLoad(){
   try{
     var dF=await sbGet('forn'),dC=await sbGet('clientes'),dP=await sbGet('pedidos');
-    var dPr=await sbGet('produtos'),dG=await sbGet('grupos'),dH=await sbGet('hist');
+    var dPr=await sbGet('produtos'),dG=await sbGet('grupos'),dH=await sbGet('hist'),dHA=await sbGet('historico_anual');
     if(dF&&dF.length)D.fornecedores=dF;
     if(dC){D.clientes=dC;D.nxt.c=dC.length?Math.max.apply(null,dC.map(x=>+x.id||0))+1:1;}
     if(dP&&dP.length){
@@ -2220,6 +2215,7 @@ async function sbLoad(){
     }
     if(dPr&&dPr.length)D.produtos=dPr;
     if(dG)D.grupos=dG;// always update, even when empty
+    if(dHA)D.historicoAnual=dHA.map(function(h){h.ano=+h.ano;h.vendas_total=+h.vendas_total||0;h.faturamento_total=+h.faturamento_total||0;h.comissao_total=+h.comissao_total||0;h.comissao_faturada=+h.comissao_faturada||0;h.mensal=Array.isArray(h.mensal)?h.mensal:[];return h;}).sort(function(a,b){return a.ano-b.ano;});
     if(dH&&dH.length){
       var hh=dH[0];
       try{D.hist.ant=typeof hh.ant==='string'?JSON.parse(hh.ant):(Array.isArray(hh.ant)?hh.ant:D.hist.ant);}catch(e){}
