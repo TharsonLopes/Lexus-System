@@ -1313,13 +1313,17 @@ async function savePed(id){
   }
   const epQty2=parseFloat(document.getElementById('ep-qty')?.value)||0;
   const epPu2=parseFloat(document.getElementById('ep-pu')?.value)||0;
+  const epItemAntes=(p.itens&&p.itens[0])||{};
+  const epProd2=+document.getElementById('ep-prod')?.value||+epItemAntes.pid||0;
   if(epQty2>0&&epPu2>0){
-    p.itens=[{pid:0,qty:epQty2,pu:epPu2,mk:0,kg:epQty2}];
+    p.itens=[{pid:epProd2,qty:epQty2,pu:epPu2,mk:+epItemAntes.mk||0,kg:epQty2}];
   }
   var _epEntrada=document.getElementById('ep-entrada')?.value||'';
   var _epFat=document.getElementById('ep-fat')?.value||'';
   var _epObs=document.getElementById('ep-obs').value||'';
-  p.obs=[_epMetaAntes.fornecedor?'Fornecedor: '+_epMetaAntes.fornecedor:'',_epMetaAntes.produto?'Produto: '+_epMetaAntes.produto:'',_epFat?'Faturamento: '+_epFat:'',_epEntrada?'Entrada: '+_epEntrada:'',_epObs?'Observação: '+_epObs:''].filter(Boolean).join(' | ');
+  var _epProdSel=D.produtos.find(x=>+x.id===+epProd2);
+  var _epProdNome=_epProdSel?_epProdSel.nome:_epMetaAntes.produto;
+  p.obs=[_epMetaAntes.fornecedor?'Fornecedor: '+_epMetaAntes.fornecedor:'',_epProdNome?'Produto: '+_epProdNome:'',_epFat?'Faturamento: '+_epFat:'',_epEntrada?'Entrada: '+_epEntrada:'',_epObs?'Observação: '+_epObs:''].filter(Boolean).join(' | ');
   p.numero_representada=_epMetaAntes.fornecedor||null;p.faturado_em=_epFat||null;
   try{
     await sbUpsert('pedidos',safePed(p));
@@ -2386,6 +2390,10 @@ function editPed(id){
   const epQty=parseFloat(it0.qty)||0;
   const epPu=parseFloat(it0.pu)||0;
   const epKg=parseFloat(it0.kg||it0.qty)||0;
+  const normProd=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  const prodEncontrado=D.produtos.find(x=>+x.id===+it0.pid)||D.produtos.find(x=>normProd(x.nome)===normProd(meta.produto));
+  const epProdId=prodEncontrado?+prodEncontrado.id:(+it0.pid||0);
+  const prodOpts='<option value="0">Selecione o produto</option>'+[...D.produtos].sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR')).map(x=>`<option value="${x.id}"${epProdId===+x.id?' selected':''}>${crmEsc(x.nome||'Produto sem nome')}</option>`).join('');
   const fornOpts=D.fornecedores.map(f=>`<option value="${f.id}"${p.fid===f.id?' selected':''}>${f.nome}</option>`).join('');
   const cliOpts=[...D.clientes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}"${p.cid===c.id?' selected':''}>${c.nome}</option>`).join('');
   const stOpts=statusOpts.map(s=>`<option value="${s}"${p.status===s?' selected':''}>${sLbl[s]}</option>`).join('');
@@ -2404,8 +2412,9 @@ function editPed(id){
       <div class="fg"><label>Data de Faturamento</label><input type="date" class="fi" id="ep-fat" value="${pedFatDate(p)}"></div>
       <div class="fg"><label>Competência a Receber</label><input type="month" class="fi" id="ep-mes" value="${pedCompetencia(p)}"></div>
     </div>
+    <div class="fg" style="margin-bottom:10px"><label>Produto</label><select class="fi" id="ep-prod">${prodOpts}</select></div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-      <div class="fg"><label>Quantidade (kg/un)</label><input type="number" class="fi" id="ep-qty" value="${epQty}" step="0.01"></div>
+      <div class="fg"><label>Quantidade (kg/un)</label><input type="number" class="fi" id="ep-qty" value="${epQty}" step="0.01" oninput="calcEpTotal()"></div>
       <div class="fg"><label>Preço Unitário (R$)</label><input type="number" class="fi" id="ep-pu" value="${epPu}" step="0.01" oninput="calcEpTotal()"></div>
       <div class="fg"><label>Total (auto)</label><input class="fi" id="ep-total" readonly style="background:var(--bg1);color:var(--gold);font-weight:700" value="R$ ${(epQty*epPu||cT(p)).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></div>
     </div>
