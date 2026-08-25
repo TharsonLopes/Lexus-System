@@ -1202,14 +1202,13 @@ function novoPed(itsPre){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg" style="margin:0"><label>Quantidade (kg / un)</label><input type="number" class="fi" id="np-qty" value="${it?it.qty||'':''}" step="0.01" placeholder="0" oninput="calcTotalPed()"></div>
       <div class="fg" style="margin:0"><label>Preço Unitário (R$)</label><input type="number" class="fi" id="np-pu" value="${it?it.pu||'':''}" step="0.01" placeholder="0,00" oninput="calcTotalPed()"></div>
-      <div class="fg" style="margin:0"><label>Total (auto)</label><input class="fi" id="np-total" readonly style="background:var(--bg1);color:var(--gold);font-weight:700" placeholder="R$ 0,00"></div>
+      <div class="fg" style="margin:0"><label>Total (auto)</label><input class="fi" id="np-total" readonly style="background:var(--bg1);color:var(--gold);font-weight:700" placeholder="R$ 0,00"><div id="np-comissao" style="margin-top:6px;color:var(--green);font-size:12px;font-weight:700">Comissão: R$ 0,00</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg" style="margin:0"><label>% Comissão</label><input type="number" class="fi" id="np-com" value="3.5" step="0.01" oninput="calcTotalPed()"></div>
       <div class="fg" style="margin:0"><label>Tributação</label><select class="fi" id="np-trib"><option value="1">Tributável</option><option value="0">Não Tributável</option></select></div>
       <div class="fg" style="margin:0"><label>Competência a Receber</label><input type="month" class="fi" id="np-mes-com"></div>
     </div>
-    <div class="fg" style="margin-bottom:10px"><label>Comissão prevista (auto)</label><input class="fi" id="np-comissao" readonly style="background:var(--bg1);color:var(--green);font-weight:700" value="R$ 0,00"></div>
     <div class="fg"><label>Observações</label><textarea class="fi" id="np-obs" rows="2" placeholder="Observações adicionais..."></textarea></div>
   `,`<button class="btn btn-gold" onclick="confPed()">✓ Confirmar</button><button class="btn btn-out" onclick="fM()">Cancelar</button>`);
   setTimeout(calcTotalPed,50);
@@ -1232,7 +1231,7 @@ function calcTotalPed(){
   const tot=document.getElementById('np-total');
   const com=document.getElementById('np-comissao');
   if(tot)tot.value='R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  if(com)com.value='R$ '+(valor*pct/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(com)com.textContent='Comissão: R$ '+(valor*pct/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 async function confPed(){
   const fid=+document.getElementById('np-fid').value;
