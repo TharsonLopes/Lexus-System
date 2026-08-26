@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-25-filtros-pedidos-1';
+const APP_BUILD='2026-08-25-colunas-pedidos-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -1017,10 +1017,10 @@ function rPedidos(){
     <thead><tr>
       <th style="width:32px">#</th>
       <th>Nº Representada</th>
-      <th>Produto</th>
+      <th>Data Pedido</th>
       <th>Cliente</th>
       <th>Representada</th>
-      <th>Data Pedido</th>
+      <th>Produto</th>
       <th>Faturamento</th>
       <th>Peso (kg)</th>
       <th>Valor</th>
@@ -1070,10 +1070,10 @@ function rPedTb(lista){
     rows+='<tr class="'+rowCls+'" onclick="verPed(\''+p.id+'\')" style="cursor:pointer;border-bottom:1px solid var(--br)">';
     rows+='<td style="font-size:10px;color:var(--cream4);min-width:28px">'+(_seqMap[p.id]||'')+'</td>';
     rows+='<td style="font-size:11px;color:var(--cream3)">'+(meta.fornecedor||'—')+'</td>';
-    rows+='<td>'+(meta.produto||p.itens.map(function(i){return gP(i.pid).nome||'';}).filter(Boolean).join(', ')||'—')+'</td>';
+    rows+='<td style="color:var(--cream3)">'+fmtD(p.data)+'</td>';
     rows+='<td>'+(gC(p.cid).nome||'—')+'</td>';
     rows+='<td style="font-size:11px;color:var(--cream4)">'+(gF(p.fid).nome||'—')+'</td>';
-    rows+='<td style="color:var(--cream3)">'+fmtD(p.data)+'</td>';
+    rows+='<td>'+(meta.produto||p.itens.map(function(i){return gP(i.pid).nome||'';}).filter(Boolean).join(', ')||'—')+'</td>';
     rows+='<td style="color:var(--cream3)">'+(pedFatDate(p)?fmtD(pedFatDate(p)):'—')+'</td>';
     rows+='<td style="color:var(--cream3)">'+fmtKg(cPeso(p))+'</td>';
     rows+='<td><strong>'+fmt(cT(p))+'</strong></td>';
