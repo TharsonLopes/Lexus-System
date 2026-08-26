@@ -491,6 +491,8 @@ var PLANILHA={};
 
 
 'use strict';
+const APP_BUILD='2026-08-25-sync-1';
+window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
 // ═══════════════════════════════════════════════════════
@@ -647,6 +649,7 @@ if(false){
 const PGT={dash:'Dashboard',pedidos:'Pedidos de Venda',produtos:'Catálogo de Produtos',clientes:'Clientes',crm:'CRM de Clientes',fornecedores:'Representadas',ia:'IA — Pedido por Voz',relatorios:'Relatórios',comissao:'Comissionamento',recebimentos:'Recebimentos',pendencias:'Central de Pendências',config:'Configurações'};
 
 function go(page,el){
+  window.LEXUS_PAGE=page||'dash';
   console.log('GO:', page);
   document.querySelectorAll('.ni,.mob-ni').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
@@ -2614,6 +2617,40 @@ var oldLogin=window.tentarLogin;
 window.tentarLogin=async function(){var u=document.getElementById('l-user').value.trim(),p=document.getElementById('l-pass').value,err=document.getElementById('login-err');if(!u||!p){err.textContent='Preencha e-mail e senha.';err.style.display='block';return;}try{var r=await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({email:u,password:p})});var data=await r.json();if(!r.ok)throw new Error(data.error_description||data.msg||'Credenciais inválidas.');saveSession(data);D.cfg.nome_exib=(data.user&&data.user.email||u).split('@')[0];document.getElementById('login-screen').style.display='none';err.style.display='none';await loadProfile();await sbLoad();await loadV2();rDash();updBadge();}catch(e){err.textContent=e.message||'Erro de conexão.';err.style.display='block';}};
 window.logout=function(){if(!confirm('Deseja sair do sistema?'))return;fetch(SB_URL+'/auth/v1/logout',{method:'POST',headers:authHeaders()}).catch(function(){});clearSession();location.reload();};
 async function restoreSession(){var token=sessionStorage.lexus_access;if(!token)return;if(Date.now()>+(sessionStorage.lexus_exp||0)&&!await refreshSession())return;else if(!window._sbToken)saveSession({access_token:token,refresh_token:sessionStorage.lexus_refresh,expires_in:3600});document.getElementById('login-screen').style.display='none';await loadProfile();await sbLoad();await loadV2();rDash();updBadge();}
+
+var LEXUS_SYNCING=false,LEXUS_LAST_SYNC=0,LEXUS_VERSION_CHECK=0;
+function lexusModalAberto(){var m=document.getElementById('mov');return m&&!m.classList.contains('hidden');}
+async function sincronizarDispositivos(force){
+  if(LEXUS_SYNCING||!sessionStorage.lexus_access||lexusModalAberto())return;
+  if(!force&&Date.now()-LEXUS_LAST_SYNC<25000)return;
+  LEXUS_SYNCING=true;
+  try{
+    await sbLoad();
+    await loadV2();
+    if(window.LEXUS_PAGE==='crm'){CRM_READY=false;await crmSync();}
+    LEXUS_LAST_SYNC=Date.now();
+    updBadge();
+    go(window.LEXUS_PAGE||'dash');
+  }catch(e){console.warn('Sincronização entre dispositivos:',e);}
+  finally{LEXUS_SYNCING=false;}
+}
+async function verificarVersaoSistema(){
+  if(Date.now()-LEXUS_VERSION_CHECK<60000)return;
+  LEXUS_VERSION_CHECK=Date.now();
+  try{
+    var r=await fetch('./index.html?versao='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    var t=await r.text(),m=t.match(/const APP_BUILD='([^']+)'/);
+    if(m&&m[1]!==APP_BUILD){
+      var u=new URL(location.href);u.searchParams.set('v',m[1]);location.replace(u.toString());
+    }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',function(){if(!document.hidden){verificarVersaoSistema();sincronizarDispositivos(true);}});
+window.addEventListener('focus',function(){verificarVersaoSistema();sincronizarDispositivos(true);});
+setInterval(function(){if(!document.hidden)sincronizarDispositivos(false);},30000);
+setInterval(verificarVersaoSistema,300000);
+setTimeout(verificarVersaoSistema,3000);
 
 async function loadV2(){var all=await Promise.allSettled([api('recebimentos',{query:'?select=*&order=competencia.desc'}),api('fechamentos',{query:'?select=*&order=competencia.desc'}),api('importacoes',{query:'?select=*&order=created_at.desc&limit=20'}),isAdmin()?api('audit_log',{query:'?select=*&order=created_at.desc&limit=100'}):Promise.resolve([])]);V2.recebimentos=all[0].status==='fulfilled'?all[0].value||[]:[];V2.fechamentos=all[1].status==='fulfilled'?all[1].value||[]:[];V2.imports=all[2].status==='fulfilled'?all[2].value||[]:[];V2.audit=all[3].status==='fulfilled'?all[3].value||[]:[];}
 
