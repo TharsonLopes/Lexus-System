@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-25-colunas-pedidos-1';
+const APP_BUILD='2026-08-25-filtro-persistente-2';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -969,15 +969,21 @@ function pedMeta(p){
 function pedFatDate(p){if(p&&p.faturado_em)return String(p.faturado_em).slice(0,10);var m=String(p&&p.obs||'').match(/Faturamento\s*:\s*(\d{4}-\d{2}-\d{2})/i);return m?m[1]:'';}
 function pedCompetencia(p){if(p&&p.competencia_comissao)return String(p.competencia_comissao).slice(0,7);var mi=MESF.indexOf(p&&p.mes_com||'');if(mi<0)return'';var base=pedFatDate(p)||(p&&p.data)||String(ANO_AT)+'-01-01';return String(base).slice(0,4)+'-'+String(mi+1).padStart(2,'0');}
 function fmtCompetencia(p){var c=typeof p==='string'?p:pedCompetencia(p);if(!c)return'—';var a=c.split('-');return MESF[(+a[1]||1)-1]+' / '+a[0];}
+var PED_VIEW_STATE=(function(){try{return JSON.parse(sessionStorage.getItem('lexus_ped_view')||'{}');}catch(e){return {};}})();
+function guardarVistaPedidos(v){
+  PED_VIEW_STATE=Object.assign({},PED_VIEW_STATE,v||{});
+  try{sessionStorage.setItem('lexus_ped_view',JSON.stringify(PED_VIEW_STATE));}catch(e){}
+  return PED_VIEW_STATE;
+}
 function capturarVistaPedidos(){
-  if(window.LEXUS_PAGE!=='pedidos'||!document.getElementById('p-tb'))return null;
+  if(!document.getElementById('p-tb'))return PED_VIEW_STATE&&Object.keys(PED_VIEW_STATE).length?PED_VIEW_STATE:null;
   var content=document.getElementById('content');
-  return{
+  return guardarVistaPedidos({
     busca:document.getElementById('p-busca')?.value||'',
     status:document.getElementById('p-fil-st')?.value||'',
     representada:document.getElementById('p-fil-forn')?.value||'',
     scroll:content?content.scrollTop:0
-  };
+  });
 }
 function restaurarVistaPedidos(v){
   rPedidos();
@@ -1032,11 +1038,19 @@ function rPedidos(){
   </table>
   </div>`;
   rPedTb(lista);
+  if(PED_VIEW_STATE&&Object.keys(PED_VIEW_STATE).length){
+    var _pb=document.getElementById('p-busca'),_ps=document.getElementById('p-fil-st'),_pf=document.getElementById('p-fil-forn');
+    if(_pb)_pb.value=PED_VIEW_STATE.busca||'';
+    if(_ps)_ps.value=PED_VIEW_STATE.status||'';
+    if(_pf)_pf.value=PED_VIEW_STATE.representada||'';
+    filtPed();
+  }
 }
 function filtPed(){
   const q=(document.getElementById('p-busca')?.value||'').toLowerCase();
   const st=document.getElementById('p-fil-st')?.value||'';
   const fid=document.getElementById('p-fil-forn')?.value||'';
+  guardarVistaPedidos({busca:q,status:st,representada:fid});
   const lista=D.pedidos.filter(p=>!p.deleted_at&&!isFastMalhas(p.fid)&&p.tipo!=='processo').filter(p=>{
     const cNome=(gC(p.cid).nome||'').toLowerCase();
     const m=pedMeta(p);
