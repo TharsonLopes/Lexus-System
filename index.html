@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-25-edit-pedido-2';
+const APP_BUILD='2026-08-25-filtros-pedidos-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -969,6 +969,26 @@ function pedMeta(p){
 function pedFatDate(p){if(p&&p.faturado_em)return String(p.faturado_em).slice(0,10);var m=String(p&&p.obs||'').match(/Faturamento\s*:\s*(\d{4}-\d{2}-\d{2})/i);return m?m[1]:'';}
 function pedCompetencia(p){if(p&&p.competencia_comissao)return String(p.competencia_comissao).slice(0,7);var mi=MESF.indexOf(p&&p.mes_com||'');if(mi<0)return'';var base=pedFatDate(p)||(p&&p.data)||String(ANO_AT)+'-01-01';return String(base).slice(0,4)+'-'+String(mi+1).padStart(2,'0');}
 function fmtCompetencia(p){var c=typeof p==='string'?p:pedCompetencia(p);if(!c)return'—';var a=c.split('-');return MESF[(+a[1]||1)-1]+' / '+a[0];}
+function capturarVistaPedidos(){
+  if(window.LEXUS_PAGE!=='pedidos'||!document.getElementById('p-tb'))return null;
+  var content=document.getElementById('content');
+  return{
+    busca:document.getElementById('p-busca')?.value||'',
+    status:document.getElementById('p-fil-st')?.value||'',
+    representada:document.getElementById('p-fil-forn')?.value||'',
+    scroll:content?content.scrollTop:0
+  };
+}
+function restaurarVistaPedidos(v){
+  rPedidos();
+  if(!v)return;
+  var busca=document.getElementById('p-busca'),status=document.getElementById('p-fil-st'),representada=document.getElementById('p-fil-forn');
+  if(busca)busca.value=v.busca||'';
+  if(status)status.value=v.status||'';
+  if(representada)representada.value=v.representada||'';
+  filtPed();
+  requestAnimationFrame(function(){var content=document.getElementById('content');if(content)content.scrollTop=v.scroll||0;});
+}
 function rPedidos(){
   console.log("Render: rPedidos");
   const lista=D.pedidos.filter(p=>!p.deleted_at&&!isFastMalhas(p.fid));
@@ -1300,6 +1320,8 @@ function calcEpTotal(){
 
 async function savePed(id){
   const p=D.pedidos.find(x=>x.id===id);if(!p)return;
+  const _epVistaPedidos=capturarVistaPedidos();
+  const _epPagina=window.LEXUS_PAGE||'pedidos';
   const _epMetaAntes=pedMeta(p);
   p.cid=+document.getElementById('ep-cli').value||p.cid;
   p.fid=+document.getElementById('ep-forn').value||p.fid;
@@ -1341,8 +1363,17 @@ async function savePed(id){
     await sbUpsert('pedidos',safePed(p));
     fM();
     await sbLoad();
-    updBadge();rDash();
-    if(isFastMalhas(p.fid))rProcessos();else rPedidos();
+    updBadge();
+    if(_epVistaPedidos){
+      window.LEXUS_PAGE='pedidos';
+      restaurarVistaPedidos(_epVistaPedidos);
+    }else if(_epPagina==='processos'){
+      rProcessos();
+    }else if(_epPagina==='dash'){
+      rDash();
+    }else{
+      go(_epPagina);
+    }
   }catch(e){alert('Erro ao salvar: '+e.message);}
 }
 
