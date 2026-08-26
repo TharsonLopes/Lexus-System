@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-25-filtro-persistente-2';
+const APP_BUILD='2026-08-26-fast-comissao-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -2368,10 +2368,11 @@ async function importarComissao2026(){
 }
 
 function planilhaFastMalhasAno(){
-  // Use only PROC- pedidos (user-created, correct values) — not IMP-
+  // Todos os processos ativos entram no vendido anual. A Fast Malhas paga 1% sobre o vendido.
   var fmPeds=D.pedidos.filter(function(p){return isFastMalhas(p.fid)&&p.status!=='cancelado';});
   if(fmPeds.length>0){
-    return{fat:fmPeds.reduce(function(s,p){return s+cT(p);},0),com:fmPeds.reduce(function(s,p){return s+cC(p);},0)};
+    var totalFast=fmPeds.reduce(function(s,p){return s+cT(p);},0);
+    return{fat:totalFast,com:Math.round(totalFast*0.01*100)/100};
   }
   // Fallback: PLANILHA
   var fat=0,com=0;
@@ -2509,7 +2510,7 @@ function rProcessos(){
   // ── KPI Cards ──
   var h='<div class="sg" style="margin-bottom:14px">';
   h+='<div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento Fast Malhas '+ANO_AT+'</div><div class="sv">'+fmt(_fmA.fat)+'</div><div class="st up">Acumulado no ano</div></div>';
-  h+='<div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Fast Malhas '+ANO_AT+'</div><div class="sv" style="color:var(--gold)">'+fmt(_fmA.com)+'</div><div class="st up">Acumulada no ano</div></div>';
+  h+='<div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Fast Malhas '+ANO_AT+' (1%)</div><div class="sv" style="color:var(--gold)">'+fmt(_fmA.com)+'</div><div class="st up">Sobre todas as vendas do ano</div></div>';
   h+='<div class="stat"><div class="si sib"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div><div class="sl">Faturamento '+_mnLabel+'</div><div class="sv">'+fmt(_fmM.fat)+'</div><div class="st neu">Mês atual</div></div>';
   h+='<div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="sl">Comissão '+_mnLabel+'</div><div class="sv" style="color:var(--gold)">'+fmt(_fmM.com)+'</div><div class="st neu">Mês atual</div></div>';
   h+='<div class="stat"><div class="si sib"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div class="sl">Processos no Banco</div><div class="sv">'+_nProc+'</div><div class="st neu">Registros ativos</div></div>';
