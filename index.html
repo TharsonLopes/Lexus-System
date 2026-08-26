@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-25-sync-1';
+const APP_BUILD='2026-08-25-edit-pedido-2';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -1290,8 +1290,12 @@ async function confPed(){
 function calcEpTotal(){
   const qty=parseFloat(document.getElementById('ep-qty')?.value)||0;
   const pu=parseFloat(document.getElementById('ep-pu')?.value)||0;
+  const valor=qty*pu;
+  const pct=parseFloat(document.getElementById('ep-com')?.value)||0;
   const tot=document.getElementById('ep-total');
-  if(tot)tot.value='R$ '+(qty*pu).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const com=document.getElementById('ep-comissao');
+  if(tot)tot.value='R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(com)com.value='R$ '+(valor*pct/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
 async function savePed(id){
@@ -1327,11 +1331,12 @@ async function savePed(id){
   }
   var _epEntrada=document.getElementById('ep-entrada')?.value||'';
   var _epFat=document.getElementById('ep-fat')?.value||'';
+  var _epNforn=(document.getElementById('ep-nforn')?.value||'').trim();
   var _epObs=document.getElementById('ep-obs').value||'';
   var _epProdSel=D.produtos.find(x=>+x.id===+epProd2);
   var _epProdNome=_epProdSel?_epProdSel.nome:_epMetaAntes.produto;
-  p.obs=[_epMetaAntes.fornecedor?'Fornecedor: '+_epMetaAntes.fornecedor:'',_epProdNome?'Produto: '+_epProdNome:'',_epFat?'Faturamento: '+_epFat:'',_epEntrada?'Entrada: '+_epEntrada:'',_epObs?'Observação: '+_epObs:''].filter(Boolean).join(' | ');
-  p.numero_representada=_epMetaAntes.fornecedor||null;p.faturado_em=_epFat||null;
+  p.obs=[_epNforn?'Fornecedor: '+_epNforn:'',_epProdNome?'Produto: '+_epProdNome:'',_epFat?'Faturamento: '+_epFat:'',_epEntrada?'Entrada: '+_epEntrada:'',_epObs?'Observação: '+_epObs:''].filter(Boolean).join(' | ');
+  p.numero_representada=_epNforn||null;p.faturado_em=_epFat||null;
   try{
     await sbUpsert('pedidos',safePed(p));
     fM();
@@ -2409,9 +2414,10 @@ function editPed(id){
       <div class="fg"><label>Cliente</label><select class="fi" id="ep-cli">${cliOpts}</select></div>
       <div class="fg"><label>Representada</label><select class="fi" id="ep-forn">${fornOpts}</select></div>
     </div>
+    <div class="fg" style="margin-bottom:10px"><label>Nº do pedido da representada</label><input type="text" class="fi" id="ep-nforn" value="${crmEsc(p.numero_representada||meta.fornecedor||'')}" placeholder="Informe o número fornecido pela representada"></div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg"><label>Data</label><input type="date" class="fi" id="ep-data" value="${p.data||''}"></div>
-      <div class="fg"><label>% Comissão</label><input type="number" class="fi" id="ep-com" value="${p.cpct||3.5}" step="0.01"></div>
+      <div class="fg"><label>% Comissão</label><input type="number" class="fi" id="ep-com" value="${p.cpct||3.5}" step="0.01" oninput="calcEpTotal()"></div>
       <div class="fg"><label>Tributação</label><select class="fi" id="ep-trib"><option value="1"${p.trib?' selected':''}>Tributável</option><option value="0"${!p.trib?' selected':''}>Não Tributável</option></select></div>
     </div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
@@ -2425,13 +2431,14 @@ function editPed(id){
       <div class="fg"><label>Preço Unitário (R$)</label><input type="number" class="fi" id="ep-pu" value="${epPu}" step="0.01" oninput="calcEpTotal()"></div>
       <div class="fg"><label>Total (auto)</label><input class="fi" id="ep-total" readonly style="background:var(--bg1);color:var(--gold);font-weight:700" value="R$ ${(epQty*epPu||cT(p)).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></div>
     </div>
+    <div class="fg" style="margin-bottom:10px"><label>Comissão prevista (auto)</label><input class="fi" id="ep-comissao" readonly style="background:var(--bg1);color:var(--green);font-weight:700" value="R$ ${((epQty*epPu||cT(p))*(parseFloat(p.cpct)||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}"></div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg"><label>Situação da Comissão</label><select class="fi" id="ep-stcom">${['prevista','confirmada','vencida','recebida','conciliada'].map(s=>`<option value="${s}"${(p.status_comissao||'prevista')===s?' selected':''}>${s[0].toUpperCase()+s.slice(1)}</option>`).join('')}</select></div>
       <div class="fg"><label>Valor Recebido</label><input type="number" step="0.01" class="fi" id="ep-vrec" value="${+p.valor_recebido||0}"></div>
       <div class="fg"><label>Recebido em</label><input type="date" class="fi" id="ep-drec" value="${p.recebido_em||''}"></div>
     </div>
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-      <div class="fg"><label>Data de Entrada</label><input type="date" class="fi" id="ep-entrada" value="${(function(){var o=p.obs||'';var m=o.match(/Entrada:(\d{4}-\d{2}-\d{2})/);return m?m[1]:'';})()}"></div>
+      <div class="fg"><label>Data de Entrada</label><input type="date" class="fi" id="ep-entrada" value="${(function(){var o=p.obs||'';var m=o.match(/Entrada:\s*(\d{4}-\d{2}-\d{2})/i);return m?m[1]:'';})()}"></div>
       <div class="fg"><label>Observações</label><textarea class="fi" id="ep-obs" rows="2">${meta.observacao||''}</textarea></div>
     </div>
   `,`<button class="btn btn-gold" onclick="savePed('${id}')">💾 Salvar</button><button class="btn btn-out" onclick="fM()">Cancelar</button>`);
