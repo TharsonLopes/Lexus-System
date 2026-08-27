@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-26-graficos-reconciliados-1';
+const APP_BUILD='2026-08-27-ranking-representadas-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -768,9 +768,8 @@ function rDash(){
     fvM[p.fid]=(fvM[p.fid]||0)+cT(p);
     p.itens.forEach(i=>pvM[i.pid]=(pvM[i.pid]||0)+(parseFloat(i.qty)||0));
   });
-  // Agregados ANO (para Top rankings — mais representativo)
-  const prefA=ANO_AT+'-';
-  const pa=D.pedidos.filter(p=>p.data&&String(p.data||'').startsWith(prefA)&&p.status!=='cancelado');
+  // A base operacional contém os registros de 2026. Inclui importados sem data no ranking anual.
+  const pa=D.pedidos.filter(p=>!p.deleted_at&&p.status!=='cancelado');
   const cvA={},fvA={};
   pa.forEach(p=>{cvA[p.cid]=(cvA[p.cid]||0)+cT(p);fvA[p.fid]=(fvA[p.fid]||0)+cT(p);});
   const topP=Object.entries(pvM).sort((a,b)=>b[1]-a[1]).slice(0,5);const mxP=topP[0]?.[1]||1;
