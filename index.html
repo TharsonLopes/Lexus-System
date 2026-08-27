@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-27-pendencias-completas-1';
+const APP_BUILD='2026-08-27-grupos-economicos-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -740,16 +740,7 @@ function rDash(){
   const pesoM=pm.reduce((s,p)=>s+cPeso(p),0);
   const pend=D.pedidos.filter(p=>p.status==='pendente').length;
   const hoje=new Date();
-  const inat=D.clientes.filter(function(c){
-    if(c.status==='inativo')return true;
-    var membros=c.gid?D.clientes.filter(function(x){return +x.gid===+c.gid;}):[c];
-    if(membros.some(function(x){return x.status==='inativo';}))return true;
-    var ids=membros.map(function(x){return +x.id;});
-    var peds=D.pedidos.filter(function(p){return ids.includes(+p.cid)&&p.status!=='cancelado';});
-    if(!peds.length)return false;
-    var lastDate=new Date(peds.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');})[0].data+'T00:00:00');
-    return(hoje-lastDate)/(86400000)>180;
-  });
+  const inat=D.clientes.filter(function(c){return clienteInativoEfetivo(c);});
   const meta=D.cfg.meta_mensal||150000;
   const metaVendMes=D.cfg.meta_vendas||0;
   const px2=ANO_AT+'-'+String(MES_AT+1).padStart(2,'0');
@@ -944,26 +935,30 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
   </div>
 `;
 }
+function atividadeGrupoCliente(c){
+  var membros=c&&c.gid?D.clientes.filter(function(x){return +x.gid===+c.gid;}):[c];
+  membros=membros.filter(Boolean);
+  var ids=membros.map(function(x){return +x.id;});
+  var peds=D.pedidos.filter(function(p){return !p.deleted_at&&ids.includes(+p.cid)&&p.status!=='cancelado'&&p.data;})
+    .sort(function(a,b){return String(b.data).localeCompare(String(a.data));});
+  return{membros:membros,ultimo:peds[0]||null};
+}
+function clienteInativoEfetivo(c){
+  var a=atividadeGrupoCliente(c);
+  if(a.membros.length&&a.membros.every(function(x){return x.status==='inativo';}))return true;
+  if(!a.ultimo)return false;
+  return dias(a.ultimo.data)>180;
+}
 function verInativos(){
-  const inat=D.clientes.filter(function(c){
-    if(c.status==='inativo')return true;
-    var peds=D.pedidos.filter(function(p){return p.cid===c.id&&p.status!=='cancelado';});
-    if(!peds.length)return false;
-    var last=peds.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');})[0];
-    return dias(last.data)>180;
-  }).sort(function(a,b){
-    var pa=D.pedidos.filter(function(p){return p.cid===a.id&&p.status!=='cancelado';}).sort(function(x,y){return (y.data||'').localeCompare(x.data||'');})[0];
-    var pb=D.pedidos.filter(function(p){return p.cid===b.id&&p.status!=='cancelado';}).sort(function(x,y){return (y.data||'').localeCompare(x.data||'');})[0];
-    return dias(pa?.data)-dias(pb?.data);
+  const inat=D.clientes.filter(clienteInativoEfetivo).sort(function(a,b){
+    var aa=atividadeGrupoCliente(a),bb=atividadeGrupoCliente(b);
+    return dias(aa.ultimo&&aa.ultimo.data)-dias(bb.ultimo&&bb.ultimo.data);
   });
-  aM('Clientes Inativos',`
-    <p style="font-size:12px;color:var(--cream4);margin-bottom:12px">${inat.length} cliente(s) sem compras recentes — clique para editar</p>
-    ${inat.map(c=>`<div class="inat-row" onclick="fM();editCli(${c.id})">
-      <div class="inat-av">${c.nome.split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
-      <div style="flex:1;min-width:0"><div style="font-weight:600;color:var(--cream);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nome}</div><div style="font-size:11px;color:var(--cream4)">${c.cidade}/${c.uf} · ${c.seg}</div></div>
-      <div style="text-align:right;flex-shrink:0"><div style="font-size:11px;font-weight:700;color:var(--red)">${(function(){var pp=D.pedidos.filter(function(p){return p.cid===c.id&&p.status!=='cancelado';}).sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});return pp.length?dias(pp[0].data)+' dias':'sem pedidos';})()} sem compra</div><div style="font-size:10px;color:var(--cream4)">${c.up||'—'} · ${fmtD(c.uc)}</div></div>
-    </div>`).join('')||'<p style="color:var(--cream4);text-align:center;padding:20px">Nenhum cliente inativo.</p>'}`,
-    `<button class="btn btn-gold" onclick="fM()">Fechar</button>`);
+  aM('Clientes Inativos',
+    '<p style="font-size:12px;color:var(--cream4);margin-bottom:12px">'+inat.length+' cliente(s) ou grupo(s) sem compras recentes — clique para editar</p>'+
+    inat.map(function(c){var a=atividadeGrupoCliente(c),d=a.ultimo?dias(a.ultimo.data):9999,grupo=c.gid?(D.grupos.find(function(g){return +g.id===+c.gid;})||{}).nome:'';return '<div class="inat-row" onclick="fM();editCli('+c.id+')"><div class="inat-av">'+crmEsc(c.nome.split(' ').map(function(w){return w[0];}).slice(0,2).join(''))+'</div><div style="flex:1;min-width:0"><div style="font-weight:600;color:var(--cream);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+crmEsc(c.nome)+'</div><div style="font-size:11px;color:var(--cream4)">'+crmEsc((grupo?grupo+' · ':'')+(c.cidade||'—')+'/'+(c.uf||'—')+' · '+(c.seg||'Geral'))+'</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:11px;font-weight:700;color:var(--red)">'+(a.ultimo?d+' dias':'sem pedidos')+' sem compra</div><div style="font-size:10px;color:var(--cream4)">Última compra do '+(grupo?'grupo':'cliente')+': '+(a.ultimo?fmtD(a.ultimo.data):'—')+'</div></div></div>';}).join('')+
+    (inat.length?'':'<p style="color:var(--cream4);text-align:center;padding:20px">Nenhum cliente inativo.</p>'),
+    '<button class="btn btn-gold" onclick="fM()">Fechar</button>');
 }
 
 // ═══════════════════════════════════════════════════════
