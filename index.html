@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-27-crm-independente-seguro-1';
+const APP_BUILD='2026-08-27-configuracoes-seguras-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -1960,7 +1960,7 @@ async function moverCRMContato(id,etapa){
 async function converterCRMContato(id){
   var x=CRM_CONTATOS.find(function(v){return v.id===id;});if(!x)return;
   if(x.convertido_em_cliente)return alert('Este prospect já foi convertido.');
-  if(!confirm('Criar '+x.empresa||x.nome+' na base de clientes?'))return;
+  if(!confirm('Criar '+(x.empresa||x.nome)+' na base de clientes?'))return;
   var nome=(x.empresa||x.nome||'').trim();if(!nome)return alert('Informe a empresa ou o nome.');
   var existente=D.clientes.find(function(c){return norm(c.nome)===norm(nome);});
   try{
@@ -2237,21 +2237,26 @@ function rConfig(){
   </div>`;
 }
 
-function svConfig(){
-  const u=document.getElementById('cfg-user').value.trim();
+async function svConfig(){
   const n=document.getElementById('cfg-nome').value.trim();
   const s1=document.getElementById('cfg-s1').value;
   const s2=document.getElementById('cfg-s2').value;
-  if(!u){alert('Usuário obrigatório.');return;}
   if(s1&&s1!==s2){alert('Senhas não coincidem.');return;}
-  if(s1&&s1.length<6){alert('Senha deve ter pelo menos 6 caracteres.');return;}
-  D.cfg.usuario=u;
-  D.cfg.nome_exib=n||'Administrador';
-  if(s1)// senha gerida pelo Supabase Auth
-  document.getElementById('sb-uname').textContent=D.cfg.nome_exib;
-  document.getElementById('sb-av').textContent=D.cfg.nome_exib.slice(0,2).toUpperCase();
-  document.getElementById('cfg-s1').value='';
-  document.getElementById('cfg-s2').value='';alert('Configurações salvas com sucesso!');
+  if(s1&&s1.length<8){alert('A senha deve ter pelo menos 8 caracteres.');return;}
+  try{
+    if(!window._sbToken)throw new Error('Sessão expirada. Entre novamente.');
+    if(s1){
+      var rr=await fetch(SB_URL+'/auth/v1/user',{method:'PUT',headers:authHeaders(),body:JSON.stringify({password:s1})});
+      if(!rr.ok)throw new Error((await rr.text()).slice(0,180));
+    }
+    D.cfg.nome_exib=n||'Administrador';
+    if(V2.profile&&V2.profile.id)await api('profiles',{method:'PATCH',query:'?id=eq.'+encodeURIComponent(V2.profile.id),body:{nome:D.cfg.nome_exib},headers:{Prefer:'return=minimal'}});
+    document.getElementById('sb-uname').textContent=D.cfg.nome_exib;
+    document.getElementById('sb-av').textContent=D.cfg.nome_exib.slice(0,2).toUpperCase();
+    document.getElementById('cfg-s1').value='';
+    document.getElementById('cfg-s2').value='';
+    alert(s1?'Nome e senha atualizados com segurança.':'Nome atualizado com sucesso.');
+  }catch(e){alert('Não foi possível salvar as configurações: '+e.message);}
 }
 async function svMeta(){
   const v1=parseFloat(document.getElementById('cfg-meta')?.value)||150000;
