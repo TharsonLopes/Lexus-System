@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-27-top-produtos-anual-1';
+const APP_BUILD='2026-08-27-seguranca-autenticada-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -2687,21 +2687,21 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,function(c){return{'&':'
 function isoMonth(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function money(v){return(+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
 function toast(msg,type){if(typeof window.dbgMsg==='function')return window.dbgMsg(msg,type||'ok');var x=document.createElement('div');x.textContent=msg;x.style='position:fixed;right:18px;bottom:18px;z-index:9999;padding:12px 16px;border-radius:9px;background:#26231e;color:#f5ead0;border:1px solid #b89657';document.body.appendChild(x);setTimeout(function(){x.remove();},3500);}
-function authHeaders(extra){return Object.assign({'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(window._sbToken||SB_KEY)},extra||{});}
+function authHeaders(extra){if(!window._sbToken)throw new Error('Sessão não autenticada. Entre novamente.');return Object.assign({'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+window._sbToken},extra||{});}
 async function api(table,opts){opts=opts||{};var url=SB_URL+'/rest/v1/'+table+(opts.query||'');var r=await fetch(url,{method:opts.method||'GET',headers:authHeaders(opts.headers),body:opts.body===undefined?undefined:JSON.stringify(opts.body)});if(r.status===401&&sessionStorage.lexus_refresh){if(await refreshSession())return api(table,opts);}if(!r.ok){var m=await r.text();throw new Error(table+' ('+r.status+'): '+m.slice(0,240));}if(r.status===204)return null;var txt=await r.text();return txt?JSON.parse(txt):null;}
 
 function saveSession(data){if(!data||!data.access_token)return;window._sbToken=data.access_token;SB_H.Authorization='Bearer '+data.access_token;sessionStorage.lexus_access=data.access_token;sessionStorage.lexus_refresh=data.refresh_token||sessionStorage.lexus_refresh||'';sessionStorage.lexus_exp=String(Date.now()+((data.expires_in||3600)-60)*1000);}
 function clearSession(){delete window._sbToken;delete sessionStorage.lexus_access;delete sessionStorage.lexus_refresh;delete sessionStorage.lexus_exp;SB_H.Authorization='Bearer '+SB_KEY;V2.profile=null;}
 async function refreshSession(){var rt=sessionStorage.lexus_refresh;if(!rt)return false;try{var r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({refresh_token:rt})});if(!r.ok){clearSession();return false;}saveSession(await r.json());return true;}catch(e){return false;}}
-async function loadProfile(){try{var rows=await api('profiles',{query:'?select=*&id=eq.'+encodeURIComponent(await userId())});V2.profile=rows&&rows[0]||{role:'leitura',nome:'Usuário'};}catch(e){V2.profile={role:'admin',nome:D.cfg.nome_exib||'Administrador',legacy:true};console.warn('Migração de produção ainda não aplicada:',e.message);}applyRole();return V2.profile;}
+async function loadProfile(){try{var rows=await api('profiles',{query:'?select=*&id=eq.'+encodeURIComponent(await userId())});V2.profile=rows&&rows[0]||{role:'leitura',nome:'Usuário'};}catch(e){V2.profile={role:'leitura',nome:D.cfg.nome_exib||'Usuário',erro:true};console.error('Não foi possível validar o perfil:',e.message);toast('Perfil não validado. Sistema aberto somente para leitura.','erro');}applyRole();return V2.profile;}
 async function userId(){var t=window._sbToken;if(!t)return'';try{return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).sub||'';}catch(e){return'';}}
-function canWrite(){return !V2.profile||['admin','financeiro','vendedor'].includes(V2.profile.role);}
-function isAdmin(){return !V2.profile||V2.profile.role==='admin';}
+function canWrite(){return !!V2.profile&&['admin','financeiro','vendedor'].includes(V2.profile.role);}
+function isAdmin(){return !!V2.profile&&V2.profile.role==='admin';}
 function applyRole(){var p=V2.profile||{};var n=document.getElementById('sb-uname');if(n)n.textContent=p.nome||D.cfg.nome_exib||'Usuário';document.querySelectorAll('[data-pg="config"]').forEach(function(x){x.style.display=isAdmin()?'':'none';});document.body.dataset.role=p.role||'leitura';}
 
 var oldLogin=window.tentarLogin;
 window.tentarLogin=async function(){var u=document.getElementById('l-user').value.trim(),p=document.getElementById('l-pass').value,err=document.getElementById('login-err');if(!u||!p){err.textContent='Preencha e-mail e senha.';err.style.display='block';return;}try{var r=await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({email:u,password:p})});var data=await r.json();if(!r.ok)throw new Error(data.error_description||data.msg||'Credenciais inválidas.');saveSession(data);D.cfg.nome_exib=(data.user&&data.user.email||u).split('@')[0];document.getElementById('login-screen').style.display='none';err.style.display='none';await loadProfile();await sbLoad();await loadV2();rDash();updBadge();}catch(e){err.textContent=e.message||'Erro de conexão.';err.style.display='block';}};
-window.logout=function(){if(!confirm('Deseja sair do sistema?'))return;fetch(SB_URL+'/auth/v1/logout',{method:'POST',headers:authHeaders()}).catch(function(){});clearSession();location.reload();};
+window.logout=function(){if(!confirm('Deseja sair do sistema?'))return;try{fetch(SB_URL+'/auth/v1/logout',{method:'POST',headers:authHeaders()}).catch(function(){});}catch(e){}clearSession();location.reload();};
 async function restoreSession(){var token=sessionStorage.lexus_access;if(!token)return;if(Date.now()>+(sessionStorage.lexus_exp||0)&&!await refreshSession())return;else if(!window._sbToken)saveSession({access_token:token,refresh_token:sessionStorage.lexus_refresh,expires_in:3600});document.getElementById('login-screen').style.display='none';await loadProfile();await sbLoad();await loadV2();rDash();updBadge();}
 
 var LEXUS_SYNCING=false,LEXUS_LAST_SYNC=0,LEXUS_VERSION_CHECK=0;
