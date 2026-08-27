@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-27-ranking-representadas-1';
+const APP_BUILD='2026-08-27-top-produtos-anual-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -770,9 +770,13 @@ function rDash(){
   });
   // A base operacional contém os registros de 2026. Inclui importados sem data no ranking anual.
   const pa=D.pedidos.filter(p=>!p.deleted_at&&p.status!=='cancelado');
-  const cvA={},fvA={};
-  pa.forEach(p=>{cvA[p.cid]=(cvA[p.cid]||0)+cT(p);fvA[p.fid]=(fvA[p.fid]||0)+cT(p);});
-  const topP=Object.entries(pvM).sort((a,b)=>b[1]-a[1]).slice(0,5);const mxP=topP[0]?.[1]||1;
+  const pvA={},cvA={},fvA={};
+  pa.forEach(p=>{
+    cvA[p.cid]=(cvA[p.cid]||0)+cT(p);
+    fvA[p.fid]=(fvA[p.fid]||0)+cT(p);
+    (p.itens||[]).forEach(i=>pvA[i.pid]=(pvA[i.pid]||0)+(parseFloat(i.qty)||0));
+  });
+  const topP=Object.entries(pvA).sort((a,b)=>b[1]-a[1]).slice(0,5);const mxP=topP[0]?.[1]||1;
   const topC=Object.entries(cvA).sort((a,b)=>b[1]-a[1]).slice(0,5);const mxC=topC[0]?.[1]||1;
   const topF=Object.entries(fvA).sort((a,b)=>b[1]-a[1]).slice(0,4);const mxF=topF[0]?.[1]||1;
 
@@ -918,7 +922,7 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
     <!-- TOP PRODUTOS -->
     <div class="card">
-      <div class="card-header"><b>Top Produtos do mês — quantidade</b></div>
+      <div class="card-header"><b>Top Produtos em quantidade — 2026</b></div>
       <div style="padding:10px 14px">
         ${topP.map(([id,q])=>{const p=gP(+id);return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nome}</div><div style="background:var(--bg3);border-radius:2px;overflow:hidden;height:4px;margin-top:3px"><div style="height:100%;background:var(--gold);width:${(q/mxP*100).toFixed(1)}%"></div></div></div><div style="font-size:11px;color:var(--cream3);flex-shrink:0">${gP(+id).un==='kg'?fmtKg(q):q.toLocaleString('pt-BR',{maximumFractionDigits:3})+' '+(gP(+id).un||'un')}</div></div>`;}).join('')||'<p style="color:var(--cream4);font-size:12px">Sem dados</p>'}
       </div>
