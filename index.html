@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-26-status-grupo-1';
+const APP_BUILD='2026-08-26-crm-independente-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -2702,7 +2702,6 @@ async function sincronizarDispositivos(force){
   try{
     await sbLoad();
     await loadV2();
-    if(window.LEXUS_PAGE==='crm'){CRM_READY=false;await crmSync();}
     LEXUS_LAST_SYNC=Date.now();
     updBadge();
     go(window.LEXUS_PAGE||'dash');
@@ -2802,6 +2801,7 @@ restoreSession().catch(function(e){console.error('Falha ao restaurar sessão',e)
 })();
 
 </script>
+<script src="./crm-planejamento.js?v=2026-08-26-crm-independente-1"></script>
 <script async src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" crossorigin="anonymous" onerror="console.warn('Leitor XLSX indisponível')"></script>
 </body>
 </html>
