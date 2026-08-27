@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-27-grupos-economicos-1';
+const APP_BUILD='2026-08-27-faturamento-por-data-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -732,7 +732,7 @@ function rDash(){
   console.log("Render: rDash");
   const pref=`${ANO_AT}-${String(MES_AT+1).padStart(2,'0')}`;
   const pm=D.pedidos.filter(p=>p.data&&String(p.data||'').startsWith(pref)&&p.status!=='cancelado');
-  const fatM=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado'&&pedCompetencia(p)===pref;}).reduce(function(s,p){return s+cT(p);},0);
+  const fatM=D.pedidos.filter(function(p){return !p.deleted_at&&['faturado','entregue'].includes(p.status)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(pref);}).reduce(function(s,p){return s+cT(p);},0);
   const compAtual=String(ANO_AT)+'-'+String(MES_AT+1).padStart(2,'0');
   const pedidosComMes=D.pedidos.filter(p=>!p.deleted_at&&pedCompetencia(p)===compAtual);
   const comMT=pedidosComMes.filter(p=>p.trib).reduce((s,p)=>s+cC(p),0);
@@ -783,7 +783,7 @@ function rDash(){
   // Comparação equivalente: somente pedidos com mês de comissão informado (faturados).
   D.hist.at=Array.from({length:12},function(_,m){
     var px=String(ANO_AT)+'-'+String(m+1).padStart(2,'0');
-    return D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado'&&pedCompetencia(p)===px;}).reduce(function(s,p){return s+cT(p);},0);
+    return D.pedidos.filter(function(p){return !p.deleted_at&&['faturado','entregue'].includes(p.status)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(px);}).reduce(function(s,p){return s+cT(p);},0);
   });
   var mxComp=Math.max.apply(null,ant2025.concat(D.hist.at.slice(0,MES_AT+1)).concat([1]));
 
@@ -844,7 +844,7 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
     <!-- 3. Comissão Total 2026 -->
     <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Total 2026</div><div class="sv" style="font-size:17px">${fmt(_pa.com)}</div><div class="st up">Acumulado no ano</div></div>
     <!-- 4. Faturamento do Mês -->
-    <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento ${MESF[MES_AT]}</div><div class="sv">${fmt(fatM)}</div><div class="st up">↑ Mês em andamento</div></div>
+    <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento ${MESF[MES_AT]}</div><div class="sv">${fmt(fatM)}</div><div class="st up">Pela data de faturamento</div></div>
     <!-- 5. Comissão do Mês -->
     <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="sl">Comissão ${_mn}</div><div class="sv" style="font-size:17px">${fmt(_comMesAtual)}</div><div class="st neu">Mês atual</div></div>
     <!-- 6. Comissão Tributável -->
@@ -2865,7 +2865,7 @@ window.previewWorkbook=async function(input){var box=document.getElementById('v2
 window.executeWorkbookImport=async function(){var pack=window._v2Pack;if(!pack)return;try{var rec=await api('importacoes',{method:'POST',headers:{Prefer:'return=representation'},body:{arquivo:pack.source,status:'processando',resumo:pack.summary}}),imp=rec&&rec[0];window.COMISSAO_2026_IMPORT=pack;await importarComissao2026();if(imp)await api('importacoes',{method:'PATCH',query:'?id=eq.'+imp.id,body:{status:'concluida',finished_at:new Date().toISOString(),resumo:pack.summary}});await loadV2();toast('Importação registrada e concluída.');}catch(e){alert(e.message);}};
 
 var oldRDash=window.rDash;
-window.rDash=function(){oldRDash();var root=document.getElementById('content');if(!root)return;var ym=new Date().toISOString().slice(0,7),today=new Date().toISOString().slice(0,10),comMes=D.pedidos.filter(function(p){return !p.deleted_at&&pedCompetencia(p)===ym&&!['recebida','conciliada'].includes(p.status_comissao||'prevista');}).reduce(function(s,p){return s+cC(p);},0),venc=D.pedidos.filter(function(p){return !p.deleted_at&&(p.status_comissao==='vencida'||(pedCompetencia(p)&&pedCompetencia(p)<ym&&!['recebida','conciliada'].includes(p.status_comissao||'')));}).length,ret=crmLoad().filter(function(x){return x.retorno===today&&x.status!=='concluido';}).length,semFat=D.pedidos.filter(function(p){return !p.deleted_at&&!/^XLS-/i.test(String(p.id||''))&&['faturado','entregue'].includes(p.status)&&!pedFatDate(p);}).length;root.insertAdjacentHTML('afterbegin','<div class="sg" style="margin-bottom:14px"><div class="stat"><div class="sl">Comissão prevista no mês</div><div class="sv" style="color:var(--gold)">'+fmt(comMes)+'</div></div><div class="stat clk" onclick="go(\'pendencias\')"><div class="sl">Comissões vencidas</div><div class="sv" style="color:var(--red)">'+venc+'</div></div><div class="stat clk" onclick="go(\'crm\')"><div class="sl">Retornos CRM hoje</div><div class="sv">'+ret+'</div></div><div class="stat clk" onclick="go(\'pendencias\')"><div class="sl">Faturados sem data</div><div class="sv">'+semFat+'</div></div></div>');};
+window.rDash=function(){oldRDash();var root=document.getElementById('content');if(!root)return;var ym=new Date().toISOString().slice(0,7),today=new Date().toISOString().slice(0,10),comMes=D.pedidos.filter(function(p){return !p.deleted_at&&pedCompetencia(p)===ym&&!['recebida','conciliada'].includes(p.status_comissao||'prevista');}).reduce(function(s,p){return s+cC(p);},0),venc=D.pedidos.filter(function(p){return !p.deleted_at&&(p.status_comissao==='vencida'||(pedCompetencia(p)&&pedCompetencia(p)<ym&&!['recebida','conciliada'].includes(p.status_comissao||'')));}).length,ret=crmLoad().filter(function(x){return x.retorno===today&&x.status!=='concluido';}).length,semFat=D.pedidos.filter(function(p){return !p.deleted_at&&['faturado','entregue'].includes(p.status)&&!pedFatDate(p);}).length;root.insertAdjacentHTML('afterbegin','<div class="sg" style="margin-bottom:14px"><div class="stat"><div class="sl">Comissão prevista no mês</div><div class="sv" style="color:var(--gold)">'+fmt(comMes)+'</div></div><div class="stat clk" onclick="go(\'pendencias\')"><div class="sl">Comissões vencidas</div><div class="sv" style="color:var(--red)">'+venc+'</div></div><div class="stat clk" onclick="go(\'crm\')"><div class="sl">Retornos CRM hoje</div><div class="sv">'+ret+'</div></div><div class="stat clk" onclick="go(\'pendencias\')"><div class="sl">Faturados sem data</div><div class="sv">'+semFat+'</div></div></div>');};
 
 var oldVerPed=window.verPed;
 window.verPed=async function(id){oldVerPed(id);try{var rows=await api('anexos',{query:'?select=*&entidade=eq.pedido&entidade_id=eq.'+encodeURIComponent(id)+'&order=created_at.desc'}),modal=document.querySelector('.modal-body,.mb');if(modal)modal.insertAdjacentHTML('beforeend','<div class="fg" style="margin-top:16px"><label>Documentos</label><input type="file" class="fi" accept=".pdf,.png,.jpg,.jpeg,.xlsx" onchange="uploadPedidoFile(\''+esc(id)+'\',this)"><div style="margin-top:8px">'+(rows||[]).map(function(x){return'<div style="padding:6px 0;border-bottom:1px solid var(--br)">'+esc(x.nome)+' <span style="color:var(--cream4)">'+new Date(x.created_at).toLocaleString('pt-BR')+'</span></div>';}).join('')+'</div></div>');}catch(e){console.warn(e.message);}};
