@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-27-configuracoes-seguras-1';
+const APP_BUILD='2026-08-27-pendencias-completas-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -2175,13 +2175,24 @@ function rRecebimentos(){
   el.innerHTML=h;
 }
 
-function rPendencias(){
-  var el=document.getElementById('content');if(!el)return;var hoje=new Date().toISOString().slice(0,10),itens=[];
-  D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado';}).forEach(function(p){var ref=pedMeta(p).fornecedor,importado=/^XLS-/i.test(String(p.id||''));if(!importado&&!ref)itens.push({tipo:'Pedido sem número',desc:gC(p.cid).nome,id:p.id,acao:"editPed('"+p.id+"')"});if(!importado&&['faturado','entregue'].includes(p.status)&&!pedFatDate(p))itens.push({tipo:'Faturado sem data',desc:(ref||p.id)+' · '+gC(p.cid).nome,id:p.id,acao:"editPed('"+p.id+"')"});if(['faturado','entregue'].includes(p.status)&&!pedCompetencia(p))itens.push({tipo:'Sem competência',desc:(ref||p.id)+' · '+gF(p.fid).nome,id:p.id,acao:"editPed('"+p.id+"')"});if(p.status_comissao==='vencida'||(pedCompetencia(p)&&pedCompetencia(p)<hoje.slice(0,7)&&!['recebida','conciliada'].includes(p.status_comissao||'')))itens.push({tipo:'Comissão vencida',desc:(ref||p.id)+' · '+fmt(cC(p)),id:p.id,acao:"editPed('"+p.id+"')"});});
-  crmLoad().filter(function(x){return x.retorno&&x.retorno<hoje&&x.status!=='concluido';}).forEach(function(x){itens.push({tipo:'Retorno CRM atrasado',desc:gC(+x.cid).nome+' · '+fmtD(x.retorno),id:x.id,acao:'verCRM('+x.cid+')'});});
+async function rPendencias(){
+  var el=document.getElementById('content');if(!el)return;
+  var hoje=new Date().toISOString().slice(0,10),itens=[];
+  D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado';}).forEach(function(p){
+    var ref=pedMeta(p).fornecedor,cli=(gC(p.cid)||{}).nome||'Cliente não identificado',rep=(gF(p.fid)||{}).nome||'Representada não identificada';
+    if(!ref)itens.push({tipo:'Sem número da representada',desc:p.id+' · '+cli,id:p.id,acao:"editPed('"+p.id+"')"});
+    if(!p.data)itens.push({tipo:'Sem data do pedido/processo',desc:(ref||p.id)+' · '+rep,id:p.id,acao:"editPed('"+p.id+"')"});
+    if(['faturado','entregue'].includes(p.status)&&!pedFatDate(p))itens.push({tipo:'Faturado sem data',desc:(ref||p.id)+' · '+cli,id:p.id,acao:"editPed('"+p.id+"')"});
+    if(['faturado','entregue'].includes(p.status)&&!pedCompetencia(p))itens.push({tipo:'Sem competência de comissão',desc:(ref||p.id)+' · '+rep,id:p.id,acao:"editPed('"+p.id+"')"});
+    if((p.itens||[]).some(function(x){return !(gP(x.pid)||{}).nome;}))itens.push({tipo:'Produto não identificado',desc:(ref||p.id)+' · '+rep,id:p.id,acao:"editPed('"+p.id+"')"});
+    var calculada=Math.round(cT(p)*(+p.cpct||0))/100,gravada=+p.valor_comissao||0;
+    if(gravada&&Math.abs(calculada-gravada)>0.05)itens.push({tipo:'Comissão divergente',desc:(ref||p.id)+' · calculada '+fmt(calculada)+' / gravada '+fmt(gravada),id:p.id,acao:"editPed('"+p.id+"')"});
+    if(p.status_comissao==='vencida'||(pedCompetencia(p)&&pedCompetencia(p)<hoje.slice(0,7)&&!['recebida','conciliada'].includes(p.status_comissao||'')))itens.push({tipo:'Comissão vencida',desc:(ref||p.id)+' · '+fmt(cC(p)),id:p.id,acao:"editPed('"+p.id+"')"});
+  });
+  try{if(!CRM_CONTATOS_READY)await crmContatosSync();CRM_CONTATOS.filter(function(x){return x.proximo_retorno&&x.proximo_retorno<hoje&&x.etapa!=='Venda fechada'&&x.etapa!=='Sem interesse';}).forEach(function(x){itens.push({tipo:'Retorno CRM atrasado',desc:x.nome+' · '+fmtD(x.proximo_retorno),id:x.id,acao:"novoCRM('"+x.id+"')"});});}catch(e){}
   D.clientes.filter(function(c){return c.status!=='inativo'&&!c.tel;}).forEach(function(c){itens.push({tipo:'Cliente sem telefone',desc:c.nome,id:c.id,acao:'editCli('+c.id+')'});});
   var grupos={};itens.forEach(function(x){(grupos[x.tipo]||(grupos[x.tipo]=[])).push(x);});
-  el.innerHTML='<div class="ph"><div><div class="pt">Central de Pendências</div><div class="ps">Tudo que exige ação antes de virar problema</div></div><span class="badge" style="color:'+(itens.length?'var(--red)':'var(--green)')+'">'+itens.length+' pendências</span></div><div class="sg" style="margin-bottom:14px">'+Object.keys(grupos).map(function(k){return'<div class="stat"><div class="sl">'+crmEsc(k)+'</div><div class="sv">'+grupos[k].length+'</div></div>';}).join('')+'</div>'+Object.keys(grupos).map(function(k){return'<div class="card"><div class="ch"><div class="ct">'+crmEsc(k)+'</div></div><div class="cb">'+grupos[k].map(function(x){return'<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--br)"><span>'+crmEsc(x.desc)+'</span><button class="btn btn-out" onclick="'+x.acao+'">Corrigir</button></div>';}).join('')+'</div></div>';}).join('')+(itens.length?'':'<div class="card"><div style="padding:30px;text-align:center;color:var(--green)">✓ Nenhuma pendência operacional.</div></div>');
+  el.innerHTML='<div class="ph"><div><div class="pt">Central de Pendências</div><div class="ps">Inclui registros manuais e importados</div></div><span class="badge" style="color:'+(itens.length?'var(--red)':'var(--green)')+'">'+itens.length+' pendências</span></div><div class="sg" style="margin-bottom:14px">'+Object.keys(grupos).map(function(k){return'<div class="stat"><div class="sl">'+crmEsc(k)+'</div><div class="sv">'+grupos[k].length+'</div></div>';}).join('')+'</div>'+Object.keys(grupos).map(function(k){return'<div class="card"><div class="ch"><div class="ct">'+crmEsc(k)+'</div></div><div class="cb">'+grupos[k].map(function(x){return'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--br)"><span>'+crmEsc(x.desc)+'</span><button class="btn btn-out" onclick="'+x.acao+'">Corrigir</button></div>';}).join('')+'</div></div>';}).join('')+(itens.length?'':'<div class="card"><div style="padding:30px;text-align:center;color:var(--green)">✓ Nenhuma pendência operacional.</div></div>');
 }
 
 function rConfig(){
