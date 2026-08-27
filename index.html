@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-26-menu-celular-1';
+const APP_BUILD='2026-08-26-graficos-reconciliados-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -766,7 +766,7 @@ function rDash(){
   pm.forEach(p=>{
     cvM[p.cid]=(cvM[p.cid]||0)+cT(p);
     fvM[p.fid]=(fvM[p.fid]||0)+cT(p);
-    p.itens.forEach(i=>pvM[i.pid]=(pvM[i.pid]||0)+(i.qty||1)*(i.pu||0));
+    p.itens.forEach(i=>pvM[i.pid]=(pvM[i.pid]||0)+(parseFloat(i.qty)||0));
   });
   // Agregados ANO (para Top rankings — mais representativo)
   const prefA=ANO_AT+'-';
@@ -796,7 +796,7 @@ function rDash(){
   // Comissão por mês
   const cMes=Array.from({length:MES_AT+1},(_,m)=>{
     const px=`${ANO_AT}-${String(m+1).padStart(2,'0')}`;
-    const mp=D.pedidos.filter(p=>String(p.data||'').startsWith(px));
+    const mp=D.pedidos.filter(p=>!p.deleted_at&&p.status!=='cancelado'&&pedCompetencia(p)===px);
     return{t:mp.filter(p=>p.trib).reduce((s,p)=>s+cC(p),0),nt:mp.filter(p=>!p.trib).reduce((s,p)=>s+cC(p),0)};
   });
   const mxCom=Math.max(...cMes.map(x=>x.t+x.nt),1);
@@ -896,7 +896,7 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
           <div style="background:var(--bg3);border-radius:2px;overflow:hidden;height:7px"><div style="height:100%;background:var(--cream3);border-radius:2px;width:${((ant2025[i]||0)/mxComp*100).toFixed(1)}%"></div></div>
           <div style="background:var(--bg3);border-radius:2px;overflow:hidden;height:7px"><div style="height:100%;background:var(--gold);border-radius:2px;width:${((D.hist.at[i]||0)/mxComp*100).toFixed(1)}%"></div></div>
         </div>
-        <div style="width:70px;font-size:10px;color:var(--cream4);text-align:right;flex-shrink:0">${fmt(D.hist.at[i]||0)}</div>
+        <div style="width:170px;font-size:10px;text-align:right;flex-shrink:0"><span style="color:var(--cream3)">${ANO_AT-1}: ${fmt(ant2025[i]||0)}</span><br><span style="color:var(--gold)">${ANO_AT}: ${fmt(D.hist.at[i]||0)}</span></div>
       </div>`).join('')}
     </div>
   </div>
@@ -919,21 +919,21 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
     <!-- TOP PRODUTOS -->
     <div class="card">
-      <div class="card-header"><b>Top Produtos</b></div>
+      <div class="card-header"><b>Top Produtos do mês — quantidade</b></div>
       <div style="padding:10px 14px">
-        ${topP.map(([id,q])=>{const p=gP(+id);return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nome}</div><div style="background:var(--bg3);border-radius:2px;overflow:hidden;height:4px;margin-top:3px"><div style="height:100%;background:var(--gold);width:${(q/mxP*100).toFixed(1)}%"></div></div></div><div style="font-size:11px;color:var(--cream3);flex-shrink:0">${q} un</div></div>`;}).join('')||'<p style="color:var(--cream4);font-size:12px">Sem dados</p>'}
+        ${topP.map(([id,q])=>{const p=gP(+id);return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nome}</div><div style="background:var(--bg3);border-radius:2px;overflow:hidden;height:4px;margin-top:3px"><div style="height:100%;background:var(--gold);width:${(q/mxP*100).toFixed(1)}%"></div></div></div><div style="font-size:11px;color:var(--cream3);flex-shrink:0">${gP(+id).un==='kg'?fmtKg(q):q.toLocaleString('pt-BR',{maximumFractionDigits:3})+' '+(gP(+id).un||'un')}</div></div>`;}).join('')||'<p style="color:var(--cream4);font-size:12px">Sem dados</p>'}
       </div>
     </div>
     <!-- TOP CLIENTES -->
     <div class="card">
-      <div class="card-header"><b>Top Clientes</b></div>
+      <div class="card-header"><b>Top Clientes em vendas — ${ANO_AT}</b></div>
       <div style="padding:10px 14px">
         ${topC.map(([id,v])=>{const c=gC(+id);return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nome}</div><div style="background:var(--bg3);border-radius:2px;overflow:hidden;height:4px;margin-top:3px"><div style="height:100%;background:var(--gold);width:${(v/mxC*100).toFixed(1)}%"></div></div></div><div style="font-size:11px;color:var(--cream3);flex-shrink:0">${fmt(v)}</div></div>`;}).join('')||'<p style="color:var(--cream4);font-size:12px">Sem dados</p>'}
       </div>
     </div>
     <!-- TOP REPRESENTADAS -->
     <div class="card">
-      <div class="card-header"><b>Top Representadas</b></div>
+      <div class="card-header"><b>Top Representadas em vendas — ${ANO_AT}</b></div>
       <div style="padding:10px 14px">
         ${topF.map(([id,v])=>{const f=gF(+id);return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.nome}</div><div style="background:var(--bg3);border-radius:2px;overflow:hidden;height:4px;margin-top:3px"><div style="height:100%;background:var(--gold);width:${(v/mxF*100).toFixed(1)}%"></div></div></div><div style="font-size:11px;color:var(--cream3);flex-shrink:0">${fmt(v)}</div></div>`;}).join('')||'<p style="color:var(--cream4);font-size:12px">Sem dados</p>'}
       </div>
