@@ -463,11 +463,11 @@ body{display:flex;flex-direction:column}
 
 <!-- MOB NAV -->
 <div class="mob-nav" id="mob-nav" style="display:none">
-  <button class="mob-ni active" onclick="go('dash',this)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Início</button>
-  <button class="mob-ni" onclick="go('pedidos',this)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>Pedidos</button>
-  <button class="mob-ni" onclick="go('ia',this)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a3 3 0 013 3v7a3 3 0 01-6 0V5a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg>IA Voz</button>
-  <button class="mob-ni" onclick="go('clientes',this)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clientes</button>
-  <button class="mob-ni" onclick="go('relatorios',this)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Análise</button>
+  <button class="mob-ni active" data-pg="dash" onclick="go('dash',this)"><span style="font-size:18px">⌂</span>Início</button>
+  <button class="mob-ni" data-pg="pedidos" onclick="go('pedidos',this)"><span style="font-size:17px">▤</span>Pedidos</button>
+  <button class="mob-ni" data-pg="crm" onclick="go('crm',this)"><span style="font-size:17px">◎</span>CRM</button>
+  <button class="mob-ni" data-pg="planejamento" onclick="go('planejamento',this)"><span style="font-size:17px">▦</span>Planejamento</button>
+  <button class="mob-ni" onclick="abrirMenuMobile()"><span style="font-size:18px">•••</span>Mais</button>
 </div>
 
 <!-- MODAL -->
@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-26-crm-independente-1';
+const APP_BUILD='2026-08-26-menu-celular-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -648,6 +648,14 @@ if(false){
 // ═══════════════════════════════════════════════════════
 const PGT={dash:'Dashboard',pedidos:'Pedidos de Venda',produtos:'Catálogo de Produtos',clientes:'Clientes',crm:'CRM de Clientes',fornecedores:'Representadas',ia:'IA — Pedido por Voz',relatorios:'Relatórios',comissao:'Comissionamento',recebimentos:'Recebimentos',pendencias:'Central de Pendências',config:'Configurações'};
 
+function abrirMenuMobile(){
+  var itens=[
+    ['processos','Processos'],['produtos','Produtos'],['clientes','Clientes'],['fornecedores','Representadas'],
+    ['ia','IA por voz'],['relatorios','Análise'],['comissao','Comissões'],['recebimentos','Recebimentos'],
+    ['pendencias','Pendências'],['config','Configurações']
+  ];
+  aM('Menu do sistema','<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+itens.map(function(x){return '<button class="btn btn-out" style="min-height:52px;justify-content:flex-start" onclick="fM();go(\''+x[0]+'\')">'+x[1]+'</button>';}).join('')+'</div>','<button class="btn btn-out" onclick="fM()">Fechar</button>');
+}
 function go(page,el){
   window.LEXUS_PAGE=page||'dash';
   console.log('GO:', page);
