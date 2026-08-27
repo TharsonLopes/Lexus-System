@@ -491,7 +491,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-08-26-fast-comissao-1';
+const APP_BUILD='2026-08-26-status-grupo-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -734,7 +734,10 @@ function rDash(){
   const hoje=new Date();
   const inat=D.clientes.filter(function(c){
     if(c.status==='inativo')return true;
-    var peds=D.pedidos.filter(function(p){return p.cid===c.id&&p.status!=='cancelado';});
+    var membros=c.gid?D.clientes.filter(function(x){return +x.gid===+c.gid;}):[c];
+    if(membros.some(function(x){return x.status==='inativo';}))return true;
+    var ids=membros.map(function(x){return +x.id;});
+    var peds=D.pedidos.filter(function(p){return ids.includes(+p.cid)&&p.status!=='cancelado';});
     if(!peds.length)return false;
     var lastDate=new Date(peds.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');})[0].data+'T00:00:00');
     return(hoje-lastDate)/(86400000)>180;
@@ -1316,7 +1319,7 @@ async function confPed(){
   };
   if(!await sbUpsert('pedidos',safePed(ped))){alert('Erro ao salvar pedido no Supabase.');return;}
   const c=D.clientes.find(x=>x.id===cid);
-  if(c){c.uc=data;c.up=id;}
+  if(c&&!await aplicarStatusGrupoCliente(c.id,'ativo',{uc:data,up:id})){alert('Pedido salvo, mas não foi possível ativar todo o grupo econômico.');}
   fM();await sbLoad();
   if(isFastMalhas(fid))rProcessos();else rPedidos();
   updBadge();rDash();
@@ -1518,7 +1521,24 @@ function rCliTb(lista){
     <td><div class="tact"><button class="btn btn-out btn-xs" onclick="editCli(${c.id})">Editar</button><button class="btn btn-out btn-xs" onclick="togCli(${c.id})">${c.status==='ativo'?'Desativar':'Ativar'}</button></div></td>
   </tr>`;}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--cream4);padding:32px">Nenhum cliente encontrado.</td></tr>`;
 }
-function togCli(id){const c=D.clientes.find(x=>x.id===id);c.status=c.status==='ativo'?'inativo':'ativo';rCliTb(D.clientes);}
+async function aplicarStatusGrupoCliente(id,status,extra){
+  var origem=D.clientes.find(function(x){return +x.id===+id;});
+  if(!origem)return false;
+  var alvos=origem.gid?D.clientes.filter(function(x){return +x.gid===+origem.gid;}):[origem];
+  for(var alvo of alvos){
+    var dados={status:status};
+    if(+alvo.id===+origem.id&&extra)Object.assign(dados,extra);
+    if(!await sbPatch('clientes',alvo.id,dados))return false;
+    Object.assign(alvo,dados);
+  }
+  return true;
+}
+async function togCli(id){
+  var c=D.clientes.find(function(x){return +x.id===+id;});if(!c)return;
+  var novo=c.status==='ativo'?'inativo':'ativo';
+  if(!await aplicarStatusGrupoCliente(c.id,novo)){alert('Não foi possível atualizar o grupo econômico.');return;}
+  await sbLoad();rCli();
+}
 function editCli(eid=null){
   const c=eid?D.clientes.find(x=>x.id===eid):null;
   aM(c?'Editar Cliente':'Novo Cliente',`
@@ -1641,6 +1661,8 @@ async function svCli(eid){
   };
   if(eid&&+eid>0)obj.id=+eid;else obj.id=Math.max(0,...D.clientes.map(x=>+x.id||0))+1;
   if(!await sbUpsert('clientes',obj)){alert('Erro ao salvar cliente. Confirme se a migração mínima foi executada.');return;}
+  await sbLoad();
+  if(!await aplicarStatusGrupoCliente(obj.id,obj.status)){alert('Cliente salvo, mas não foi possível atualizar todo o grupo econômico.');return;}
   await sbLoad();fM();rCli();
 }
 function modGrps(){
