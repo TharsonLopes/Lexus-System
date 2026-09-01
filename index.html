@@ -548,15 +548,21 @@ const cT=p=>{
   }
   return raw||parseFloat(p.valor)||0;
 };
-// Comissão só conta quando: status=faturado E mes_com definido
-const cC=p=>{
+// Comissão: bruta, desconto tributário e variável (líquida).
+// Não tributáveis por regra Lexus: 2R, Dieu Fort, Bônus, RM Têxtil e Evo Solar.
+const COMISSAO_FIDS_NAO_TRIBUTAVEIS=[5,6,7,10,11];
+const comissaoTributavel=p=>!!p&&!COMISSAO_FIDS_NAO_TRIBUTAVEIS.includes(+p.fid);
+const cCBruta=p=>{
   if(!p||!p.mes_com)return 0;
   var gravada=parseFloat(p.valor_comissao);
-  if(Number.isFinite(gravada))return gravada;
+  if(Number.isFinite(gravada))return Math.round(gravada*100)/100;
   var taxa=parseFloat(p.cpct);
   if(!Number.isFinite(taxa))taxa=3.5;
   return Math.round((cT(p)*taxa/100)*100)/100;
 };
+const cCDesconto=p=>comissaoTributavel(p)?Math.round(cCBruta(p)*0.06*100)/100:0;
+const cCVariavel=p=>Math.round((cCBruta(p)-cCDesconto(p))*100)/100;
+const cC=p=>cCVariavel(p);
 const cCMes=p=>cC(p);// Comissão pendente (faturado mas sem mês ou ainda não faturado)
 const cCPendente=p=>{
   if(!p||p.status==='cancelado')return 0;
@@ -2500,7 +2506,7 @@ function rComissao(){
   var mc=window._mesComSel!==undefined?window._mesComSel:MES_AT;
   var repsAtivos=D.fornecedores.filter(function(f){return stats.porRep[f.id];}).sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
   var compSel=String(ANO_AT)+'-'+String(mc+1).padStart(2,'0');
-  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});return{nome:f.nome,fat:v?v.fat[mc]||0:0,com:v?v.com[mc]||0:0,rec:ps.reduce(function(s,p){var vr=+p.valor_recebido||0;if(!vr&&['recebida','conciliada'].includes(p.status_comissao||''))vr=cC(p);return s+vr;},0),pend:ps.filter(function(p){var vr=+p.valor_recebido||0;if(!vr&&['recebida','conciliada'].includes(p.status_comissao||''))vr=cC(p);return vr+0.005<cC(p);}).length};}).filter(function(x){return x.fat||x.com||x.rec;}).sort(function(a,b){return b.com-a.com;});
+  var repsMes=repsAtivos.map(function(f){var v=stats.porRep[f.id],ps=D.pedidos.filter(function(p){return !p.deleted_at&&+p.fid===+f.id&&pedCompetencia(p)===compSel;});var bruta=ps.reduce(function(s,p){return s+cCBruta(p);},0),desconto=ps.reduce(function(s,p){return s+cCDesconto(p);},0),variavel=ps.reduce(function(s,p){return s+cCVariavel(p);},0);return{nome:f.nome,fat:v?v.fat[mc]||0:0,bruta:bruta,desconto:desconto,com:variavel,rec:ps.reduce(function(s,p){var vr=+p.valor_recebido||0;if(!vr&&['recebida','conciliada'].includes(p.status_comissao||''))vr=cCVariavel(p);return s+vr;},0),pend:ps.filter(function(p){var vr=+p.valor_recebido||0;if(!vr&&['recebida','conciliada'].includes(p.status_comissao||''))vr=cCVariavel(p);return vr+0.005<cCVariavel(p);}).length};}).filter(function(x){return x.fat||x.bruta||x.rec;}).sort(function(a,b){return b.com-a.com;});
   var mxF=Math.max.apply(null,fM)||1;
   var h='';
   h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px">';
@@ -2508,10 +2514,10 @@ function rComissao(){
   h+='<select onchange="window._mesComSel=+this.value;rComissao()" style="background:#1a1f23;border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#e8e4d4;padding:5px 10px;font-size:13px;cursor:pointer">';
   MESF.forEach(function(m,i){h+='<option value="'+i+'"'+(i===mc?' selected':'')+'>'+m+'</option>';});
   h+='</select></div>';
-  h+='<div class="card" style="margin-bottom:14px"><div class="card-header"><b>Comissão a receber por representada — '+MESF[mc]+'</b></div><div style="overflow-x:auto"><table><thead><tr><th>Representada</th><th>Faturamento</th><th>Previsto</th><th>Recebido</th><th>Diferença</th><th>Pendências</th></tr></thead><tbody>';
-  repsMes.forEach(function(x){h+='<tr><td><strong>'+x.nome+'</strong></td><td>'+fmt(x.fat)+'</td><td style="color:var(--gold);font-weight:700">'+fmt(x.com)+'</td><td style="color:var(--green)">'+fmt(x.rec)+'</td><td style="color:'+(x.rec<x.com?'var(--red)':'var(--green)')+'">'+fmt(x.rec-x.com)+'</td><td>'+x.pend+'</td></tr>';});
-  if(!repsMes.length)h+='<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--cream4)">Nenhuma comissão definida para este mês.</td></tr>';
-  h+='<tr style="background:var(--gold-bg)"><td><strong>TOTAL</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.fat;},0))+'</strong></td><td style="color:var(--gold)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.com;},0))+'</strong></td><td style="color:var(--green)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.rec;},0))+'</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.rec-x.com;},0))+'</strong></td><td></td></tr></tbody></table></div></div>';
+  h+='<div class="card" style="margin-bottom:14px"><div class="card-header"><b>Controle de comissão por representada — '+MESF[mc]+'</b></div><div style="overflow-x:auto"><table><thead><tr><th>Representada</th><th>Faturamento</th><th>Comissão bruta</th><th>Desconto 6%</th><th>Comissão variável</th><th>Recebido</th><th>Diferença</th><th>Pendências</th></tr></thead><tbody>';
+  repsMes.forEach(function(x){h+='<tr><td><strong>'+x.nome+'</strong></td><td>'+fmt(x.fat)+'</td><td style="color:var(--cream2)">'+fmt(x.bruta)+'</td><td style="color:'+(x.desconto?'var(--red)':'var(--cream4)')+'">'+fmt(x.desconto)+'</td><td style="color:var(--gold);font-weight:700">'+fmt(x.com)+'</td><td style="color:var(--green)">'+fmt(x.rec)+'</td><td style="color:'+(x.rec<x.com?'var(--red)':'var(--green)')+'">'+fmt(x.rec-x.com)+'</td><td>'+x.pend+'</td></tr>';});
+  if(!repsMes.length)h+='<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--cream4)">Nenhuma comissão definida para este mês.</td></tr>';
+  h+='<tr style="background:var(--gold-bg)"><td><strong>TOTAL</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.fat;},0))+'</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.bruta;},0))+'</strong></td><td style="color:var(--red)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.desconto;},0))+'</strong></td><td style="color:var(--gold)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.com;},0))+'</strong></td><td style="color:var(--green)"><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.rec;},0))+'</strong></td><td><strong>'+fmt(repsMes.reduce(function(s,x){return s+x.rec-x.com;},0))+'</strong></td><td></td></tr></tbody></table></div></div>';
   h+='<div class="sg" style="margin-bottom:16px">';
   h+='<div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento Total '+ANO_AT+'</div><div class="sv">'+fmt(fA)+'</div><div class="st up">Acumulado · Supabase</div></div>';
   h+='<div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Total '+ANO_AT+'</div><div class="sv" style="color:var(--gold)">'+fmt(cA)+'</div><div class="st up">Acumulada · Supabase</div></div>';
