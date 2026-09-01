@@ -493,7 +493,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-09-01-financeiro-despesas-1';
+const APP_BUILD='2026-09-01-financeiro-despesas-2';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -2832,53 +2832,87 @@ function finComissaoProjetadaAno(ano){
   return D.pedidos.filter(function(p){var c=typeof pedCompetencia==='function'?pedCompetencia(p):'';return p.status!=='cancelado'&&String(c||'').slice(0,4)===String(ano);})
     .reduce(function(s,p){return s+(typeof cCVariavel==='function'?cCVariavel(p):cC(p));},0);
 }
+function despStatus(x){
+  if(x.status==='paga')return {txt:'Paga',cor:'var(--green)',bg:'rgba(74,222,128,.10)'};
+  if(x.status==='cancelada')return {txt:'Cancelada',cor:'var(--cream4)',bg:'rgba(255,255,255,.05)'};
+  var venc=x.vencimento&&x.vencimento<new Date().toISOString().slice(0,10);
+  return {txt:venc?'Vencida':'Em aberto',cor:venc?'var(--red)':'var(--gold)',bg:venc?'rgba(239,68,68,.10)':'rgba(201,168,76,.10)'};
+}
 window.rDespesas=function(){
   var root=document.getElementById('content');if(!root)return;
-  var ano=+(window._despAno||ANO_AT),mes=window._despMes===undefined?'':window._despMes,status=window._despStatus||'';
-  var rows=(V2.despesas||[]).filter(function(x){return finDataAno(x.competencia,ano);});
-  var todas=rows.slice();
-  if(mes!=='')rows=rows.filter(function(x){return +(String(x.competencia).slice(5,7))-1===+mes;});
-  if(status)rows=rows.filter(function(x){return x.status===status;});
-  var pagas=todas.filter(function(x){return x.status==='paga';}).reduce(function(s,x){return s+(+x.valor||0);},0);
-  var previstas=todas.filter(function(x){return x.status==='prevista';}).reduce(function(s,x){return s+(+x.valor||0);},0);
-  var totalNaoCancel=todas.filter(function(x){return x.status!=='cancelada';}).reduce(function(s,x){return s+(+x.valor||0);},0);
-  var rec=finComissaoRecebidaAno(ano),proj=finComissaoProjetadaAno(ano);
-  var real=rec-pagas,resultadoProj=proj-totalNaoCancel;
-  var meses='<option value="">Todos os meses</option>'+MESF.map(function(m,i){return'<option value="'+i+'"'+(String(mes)===String(i)?' selected':'')+'>'+m+'</option>';}).join('');
+  var ano=+(window._despAno||ANO_AT);
+  var mes=window._despMes===undefined?MES_AT:window._despMes;
+  var status=window._despStatus||'';
+  var todasAno=(V2.despesas||[]).filter(function(x){return finDataAno(x.competencia,ano);});
+  var doMes=todasAno.filter(function(x){return +(String(x.competencia).slice(5,7))-1===+mes;});
+  var rows=doMes.slice();
+  if(status==='aberta')rows=rows.filter(function(x){return x.status==='prevista';});
+  else if(status)rows=rows.filter(function(x){return x.status===status;});
+  var previstoMes=doMes.filter(function(x){return x.status!=='cancelada';}).reduce(function(s,x){return s+(+x.valor||0);},0);
+  var abertoMes=doMes.filter(function(x){return x.status==='prevista';}).reduce(function(s,x){return s+(+x.valor||0);},0);
+  var pagoMes=doMes.filter(function(x){return x.status==='paga';}).reduce(function(s,x){return s+(+x.valor||0);},0);
+  var vencidas=doMes.filter(function(x){return x.status==='prevista'&&x.vencimento&&x.vencimento<new Date().toISOString().slice(0,10);});
+  var pagasAno=todasAno.filter(function(x){return x.status==='paga';}).reduce(function(s,x){return s+(+x.valor||0);},0);
+  var rec=finComissaoRecebidaAno(ano),real=rec-pagasAno;
+  var meses=MESF.map(function(m,i){return'<option value="'+i+'"'+(+mes===i?' selected':'')+'>'+m+'</option>';}).join('');
   var anos=[ano-1,ano,ano+1].filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
   var anoOpt=anos.map(function(a){return'<option value="'+a+'"'+(a===ano?' selected':'')+'>'+a+'</option>';}).join('');
   var linhas=rows.map(function(x){
-    var comp=String(x.competencia||'').slice(0,7),st=x.status||'prevista';
-    return '<tr><td><strong>'+esc(x.descricao)+'</strong><small style="display:block;color:var(--cream4)">'+esc(x.observacao||'')+'</small></td><td>'+esc(x.categoria||'Geral')+'</td><td>'+esc(comp)+'</td><td>'+esc(x.tipo||'pontual')+'</td><td><strong>'+money(x.valor)+'</strong></td><td><span class="badge">'+esc(st)+'</span></td><td style="white-space:nowrap"><button class="btn btn-out" onclick="editarDespesa(\''+x.id+'\')">Editar</button> <button class="btn btn-red" onclick="excluirDespesa(\''+x.id+'\')">Excluir</button></td></tr>';
+    var st=despStatus(x),comp=MESF[(+(String(x.competencia).slice(5,7)||1))-1]+' de '+String(x.competencia||'').slice(0,4);
+    var datas=x.status==='paga'
+      ?'<span style="color:var(--green)">Paga em '+esc(x.pago_em||'data não informada')+'</span>'
+      :(x.vencimento?'Vence em '+esc(x.vencimento):'Sem vencimento');
+    var acao=x.status==='paga'
+      ?'<button class="btn btn-out" onclick="reabrirDespesa(\''+x.id+'\')">Reabrir</button>'
+      :x.status==='cancelada'
+        ?'<button class="btn btn-out" onclick="reabrirDespesa(\''+x.id+'\')">Reabrir</button>'
+        :'<button class="btn btn-gold" onclick="pagarDespesa(\''+x.id+'\')">✓ Marcar como paga</button>';
+    return '<tr><td><strong>'+esc(x.descricao)+'</strong><small style="display:block;color:var(--cream4)">'+esc(x.categoria||'Geral')+(x.observacao?' · '+esc(x.observacao):'')+'</small></td><td>'+comp+'</td><td><strong>'+money(x.valor)+'</strong></td><td><span style="display:inline-block;padding:5px 9px;border-radius:20px;background:'+st.bg+';color:'+st.cor+';font-size:11px;font-weight:700">'+st.txt+'</span><small style="display:block;margin-top:5px;color:var(--cream4)">'+datas+'</small></td><td style="white-space:nowrap">'+acao+' <button class="btn btn-out" onclick="editarDespesa(\''+x.id+'\')">Editar</button> <button class="btn btn-red" onclick="excluirDespesa(\''+x.id+'\')">Excluir</button></td></tr>';
   }).join('');
-  root.innerHTML='<div class="ph"><div><div class="pt">Despesas</div><div class="ps">Custos da empresa e resultado real ou projetado</div></div><button class="btn btn-gold" onclick="editarDespesa(\'\')">+ Nova despesa</button></div>'+
-  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><select class="fi" onchange="window._despAno=+this.value;rDespesas()">'+anoOpt+'</select><select class="fi" onchange="window._despMes=this.value;rDespesas()">'+meses+'</select><select class="fi" onchange="window._despStatus=this.value;rDespesas()"><option value="">Todos os status</option><option value="prevista"'+(status==='prevista'?' selected':'')+'>Previstas</option><option value="paga"'+(status==='paga'?' selected':'')+'>Pagas</option><option value="cancelada"'+(status==='cancelada'?' selected':'')+'>Canceladas</option></select></div>'+
-  '<div class="stats"><div class="stat"><div class="sl">Comissões recebidas — '+ano+'</div><div class="sv">'+money(rec)+'</div><div class="st up">Somente valores recebidos</div></div><div class="stat"><div class="sl">Despesas pagas</div><div class="sv">'+money(pagas)+'</div><div class="st neu">Realizado</div></div><div class="stat"><div class="sl">Resultado realizado</div><div class="sv" style="color:'+(real>=0?'var(--green)':'var(--red)')+'">'+money(real)+'</div><div class="st '+(real>=0?'up':'down')+'">'+(real>=0?'Lucro':'Prejuízo')+'</div></div><div class="stat"><div class="sl">Despesas previstas</div><div class="sv">'+money(previstas)+'</div><div class="st neu">Ainda não pagas</div></div><div class="stat"><div class="sl">Resultado projetado</div><div class="sv" style="color:'+(resultadoProj>=0?'var(--gold)':'var(--red)')+'">'+money(resultadoProj)+'</div><div class="st neu">Comissões previstas − despesas</div></div></div>'+
-  '<div class="card"><div class="ch"><div class="ct">Lançamentos<small>'+rows.length+' registro(s)</small></div></div><div class="tw"><table><thead><tr><th>Despesa</th><th>Categoria</th><th>Competência</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>'+linhas+'</tbody></table></div>'+(rows.length?'':'<div class="empty">Nenhuma despesa neste filtro.</div>')+'</div>';
+  root.innerHTML='<div class="ph"><div><div class="pt">Despesas</div><div class="ps">Controle simples do que está previsto, em aberto e pago</div></div><button class="btn btn-gold" onclick="editarDespesa(\'\')">+ Nova despesa</button></div>'+
+  '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><select class="fi" onchange="window._despAno=+this.value;rDespesas()">'+anoOpt+'</select><select class="fi" onchange="window._despMes=+this.value;rDespesas()">'+meses+'</select><select class="fi" onchange="window._despStatus=this.value;rDespesas()"><option value="">Todas</option><option value="aberta"'+(status==='aberta'?' selected':'')+'>Em aberto</option><option value="paga"'+(status==='paga'?' selected':'')+'>Pagas</option><option value="cancelada"'+(status==='cancelada'?' selected':'')+'>Canceladas</option></select></div>'+
+  '<div class="stats"><div class="stat"><div class="sl">Despesa prevista do mês</div><div class="sv">'+money(previstoMes)+'</div><div class="st neu">'+MESF[mes]+' de '+ano+'</div></div><div class="stat"><div class="sl">Em aberto</div><div class="sv" style="color:var(--gold)">'+money(abertoMes)+'</div><div class="st '+(vencidas.length?'down':'neu')+'">'+(vencidas.length?vencidas.length+' vencida(s)':'Aguardando pagamento')+'</div></div><div class="stat"><div class="sl">Pago no mês</div><div class="sv" style="color:var(--green)">'+money(pagoMes)+'</div><div class="st up">Confirmado como pago</div></div><div class="stat"><div class="sl">Resultado realizado — '+ano+'</div><div class="sv" style="color:'+(real>=0?'var(--green)':'var(--red)')+'">'+money(real)+'</div><div class="st '+(real>=0?'up':'down')+'">Comissões recebidas − despesas pagas</div></div></div>'+
+  '<div class="card"><div class="ch"><div class="ct">Despesas de '+MESF[mes]+'<small>'+rows.length+' lançamento(s)</small></div></div><div class="tw"><table><thead><tr><th>Despesa</th><th>Mês</th><th>Valor</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'+(rows.length?'':'<div class="empty">Nenhuma despesa neste filtro.</div>')+'</div>';
 };
 window.editarDespesa=function(id){
-  var x=(V2.despesas||[]).find(function(r){return r.id===id;})||{competencia:(window._despAno||ANO_AT)+'-'+String(MES_AT+1).padStart(2,'0')+'-01',categoria:'Geral',tipo:'pontual',status:'prevista',valor:0};
+  var x=(V2.despesas||[]).find(function(r){return r.id===id;})||{competencia:(window._despAno||ANO_AT)+'-'+String((window._despMes===undefined?MES_AT:window._despMes)+1).padStart(2,'0')+'-01',categoria:'Geral',tipo:'pontual',status:'prevista',valor:0};
   aM(id?'Editar despesa':'Nova despesa',
   '<div class="fg-row"><div class="fg"><label>Descrição</label><input id="dx-desc" class="fi" value="'+esc(x.descricao||'')+'"></div><div class="fg"><label>Categoria</label><input id="dx-cat" class="fi" value="'+esc(x.categoria||'Geral')+'"></div></div>'+
-  '<div class="fg-row"><div class="fg"><label>Valor</label><input id="dx-val" type="number" min="0" step="0.01" class="fi" value="'+(+x.valor||0)+'"></div><div class="fg"><label>Competência</label><input id="dx-comp" type="month" class="fi" value="'+esc(String(x.competencia||'').slice(0,7))+'"></div></div>'+
-  '<div class="fg-row"><div class="fg"><label>Vencimento</label><input id="dx-venc" type="date" class="fi" value="'+esc(x.vencimento||'')+'"></div><div class="fg"><label>Pago em</label><input id="dx-pago" type="date" class="fi" value="'+esc(x.pago_em||'')+'"></div></div>'+
-  '<div class="fg-row"><div class="fg"><label>Tipo</label><select id="dx-tipo" class="fi"><option value="pontual"'+(x.tipo==='pontual'?' selected':'')+'>Pontual</option><option value="fixa"'+(x.tipo==='fixa'?' selected':'')+'>Fixa</option><option value="recorrente"'+(x.tipo==='recorrente'?' selected':'')+'>Recorrente</option></select></div><div class="fg"><label>Status</label><select id="dx-status" class="fi"><option value="prevista"'+(x.status==='prevista'?' selected':'')+'>Prevista</option><option value="paga"'+(x.status==='paga'?' selected':'')+'>Paga</option><option value="cancelada"'+(x.status==='cancelada'?' selected':'')+'>Cancelada</option></select></div></div>'+
+  '<div class="fg-row"><div class="fg"><label>Valor</label><input id="dx-val" type="number" min="0" step="0.01" class="fi" value="'+(+x.valor||0)+'"></div><div class="fg"><label>Mês da despesa</label><input id="dx-comp" type="month" class="fi" value="'+esc(String(x.competencia||'').slice(0,7))+'"></div></div>'+
+  '<div class="fg-row"><div class="fg"><label>Vencimento</label><input id="dx-venc" type="date" class="fi" value="'+esc(x.vencimento||'')+'"></div><div class="fg"><label>Tipo</label><select id="dx-tipo" class="fi"><option value="pontual"'+(x.tipo==='pontual'?' selected':'')+'>Pontual</option><option value="fixa"'+(x.tipo==='fixa'?' selected':'')+'>Fixa</option><option value="recorrente"'+(x.tipo==='recorrente'?' selected':'')+'>Recorrente</option></select></div></div>'+
   '<div class="fg"><label>Forma de pagamento</label><input id="dx-forma" class="fi" value="'+esc(x.forma_pagamento||'')+'"></div><div class="fg"><label>Observações</label><textarea id="dx-obs" class="fi">'+esc(x.observacao||'')+'</textarea></div>',
-  '<button class="btn btn-gold" onclick="salvarDespesa(\''+esc(id)+'\')">Salvar</button><button class="btn btn-out" onclick="fM()">Cancelar</button>');
+  '<button class="btn btn-gold" onclick="salvarDespesa(\''+esc(id)+'\')">Salvar alterações</button><button class="btn btn-out" onclick="fM()">Cancelar</button>');
 };
 window.salvarDespesa=async function(id){
   try{
     if(!canWrite())return alert('Seu perfil é somente leitura.');
     var desc=document.getElementById('dx-desc').value.trim(),comp=document.getElementById('dx-comp').value,val=+document.getElementById('dx-val').value;
-    if(!desc||!comp||!(val>=0))return alert('Informe descrição, competência e valor.');
-    var st=document.getElementById('dx-status').value,pago=document.getElementById('dx-pago').value||null;
-    if(st==='paga'&&!pago)pago=new Date().toISOString().slice(0,10);
+    if(!desc||!comp||!(val>=0))return alert('Informe descrição, mês e valor.');
     var tipo=document.getElementById('dx-tipo').value;
-    var row={descricao:desc,categoria:document.getElementById('dx-cat').value.trim()||'Geral',valor:val,competencia:comp+'-01',vencimento:document.getElementById('dx-venc').value||null,pago_em:pago,tipo:tipo,recorrente:tipo==='recorrente',status:st,forma_pagamento:document.getElementById('dx-forma').value.trim()||null,observacao:document.getElementById('dx-obs').value.trim()||null,updated_at:new Date().toISOString()};
+    var row={descricao:desc,categoria:document.getElementById('dx-cat').value.trim()||'Geral',valor:val,competencia:comp+'-01',vencimento:document.getElementById('dx-venc').value||null,tipo:tipo,recorrente:tipo==='recorrente',forma_pagamento:document.getElementById('dx-forma').value.trim()||null,observacao:document.getElementById('dx-obs').value.trim()||null,updated_at:new Date().toISOString()};
+    if(!id){row.status='prevista';row.origem='manual';}
     if(id)await api('despesas',{method:'PATCH',query:'?id=eq.'+encodeURIComponent(id),body:row});
     else await api('despesas',{method:'POST',headers:{Prefer:'return=representation'},body:row});
     await loadV2();fM();rDespesas();
   }catch(e){console.error(e);alert('Erro ao salvar despesa: '+e.message);}
+};
+window.pagarDespesa=function(id){
+  var x=(V2.despesas||[]).find(function(r){return r.id===id;});if(!x)return;
+  var hoje=new Date().toISOString().slice(0,10);
+  aM('Confirmar pagamento','<div style="padding:4px 0 12px"><strong>'+esc(x.descricao)+'</strong><div style="font-size:22px;color:var(--gold);margin-top:5px">'+money(x.valor)+'</div></div><div class="fg"><label>Data do pagamento</label><input id="dx-pago" type="date" class="fi" value="'+hoje+'"></div><div class="fg"><label>Forma de pagamento</label><input id="dx-pagforma" class="fi" value="'+esc(x.forma_pagamento||'')+'" placeholder="PIX, boleto, cartão..."></div>','<button class="btn btn-gold" onclick="confirmarPagamento(\''+id+'\')">✓ Confirmar pagamento</button><button class="btn btn-out" onclick="fM()">Cancelar</button>');
+};
+window.confirmarPagamento=async function(id){
+  try{
+    if(!canWrite())return alert('Seu perfil é somente leitura.');
+    var data=document.getElementById('dx-pago').value;if(!data)return alert('Informe a data do pagamento.');
+    await api('despesas',{method:'PATCH',query:'?id=eq.'+encodeURIComponent(id),body:{status:'paga',pago_em:data,forma_pagamento:document.getElementById('dx-pagforma').value.trim()||null,updated_at:new Date().toISOString()}});
+    await loadV2();fM();rDespesas();
+  }catch(e){alert('Erro ao confirmar pagamento: '+e.message);}
+};
+window.reabrirDespesa=async function(id){
+  if(!canWrite())return alert('Seu perfil é somente leitura.');
+  if(!confirm('Voltar esta despesa para Em aberto?'))return;
+  try{await api('despesas',{method:'PATCH',query:'?id=eq.'+encodeURIComponent(id),body:{status:'prevista',pago_em:null,updated_at:new Date().toISOString()}});await loadV2();rDespesas();}catch(e){alert('Erro ao reabrir despesa: '+e.message);}
 };
 window.excluirDespesa=async function(id){
   if(!canWrite())return alert('Seu perfil é somente leitura.');
