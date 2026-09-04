@@ -377,6 +377,9 @@ body{display:flex;flex-direction:column}
   .desp-table td:last-child{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .desp-table td:last-child .btn{flex:1;min-width:120px;justify-content:center}
 }
+.pedido-item{border:1px solid var(--br);border-radius:10px;padding:12px;margin:10px 0;background:var(--bg2)}
+.pedido-item-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:600px){.pedido-item-grid{grid-template-columns:1fr 1fr}.pedido-item-grid .fg:last-child{grid-column:1/-1}}
 </style>
 </head>
 <body>
@@ -506,7 +509,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-09-01-financeiro-despesas-3';
+const APP_BUILD='2026-09-04-pedidos-multiplos-produtos-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -1185,7 +1188,7 @@ function safePed(p){
     itens: p.itens||[],
     status: p.status||'aguardando',
     confirmado: p.confirmado||false,
-    cpct: parseFloat(p.cpct)||3.5,
+    cpct: Number.isFinite(Number(p.cpct))?Number(p.cpct):3.5,
     obs: p.obs||'',
     trib: p.trib||false,
     mes_com: p.mes_com||'',
@@ -1250,6 +1253,48 @@ async function setStatus(id,status){
   if(isProc)rProcessos();else rPedidos();
   updBadge();rDash();
 }
+
+function pedidoItensCampos(prefix){
+  return '<div id="'+prefix+'-itens"></div><button type="button" class="btn btn-out" onclick="adicionarItemPedido(\''+prefix+'\')">+ Adicionar produto</button><div class="fg" style="margin:12px 0"><label>Total do pedido</label><input class="fi" id="'+prefix+'-total" readonly style="color:var(--gold);font-weight:700"><div id="'+prefix+'-comissao" style="margin-top:8px;color:var(--green);font-weight:700"></div></div>';
+}
+function adicionarItemPedido(prefix,item){
+  var host=document.getElementById(prefix+'-itens');if(!host)return;
+  var base=item?Object.assign({},item):{};
+  var row=document.createElement('div');row.className='pedido-item';
+  row._base=base;
+  var opts='<option value="0">'+(item&&!item.pid?'Produto não vinculado — selecione se desejar':'Selecione o produto')+'</option>';
+  opts+=D.produtos.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR');}).map(function(p){return '<option value="'+p.id+'"'+(+p.id===+base.pid?' selected':'')+'>'+esc(p.nome||'Produto')+' ('+esc(p.un||'un')+')</option>';}).join('');
+  if(base.pid&&!D.produtos.some(function(p){return +p.id===+base.pid;}))opts+='<option selected value="'+Number(base.pid)+'">Produto anteriormente vinculado</option>';
+  row.innerHTML='<div class="fg"><label>Produto</label><select class="fi item-prod" onchange="atualizarTotaisItens(\''+prefix+'\')">'+opts+'</select></div><div class="pedido-item-grid"><div class="fg"><label>Quantidade</label><input class="fi item-qty" type="number" min="0.000001" step="any" value="'+esc(base.qty==null?'':String(base.qty))+'" oninput="atualizarTotaisItens(\''+prefix+'\')"></div><div class="fg"><label>Preço unitário (R$)</label><input class="fi item-pu" type="number" min="0.000001" step="any" value="'+esc(base.pu==null?'':String(base.pu))+'" oninput="atualizarTotaisItens(\''+prefix+'\')"></div><div class="fg"><label>Subtotal</label><div class="item-subtotal" style="padding:10px 0;color:var(--gold)"></div></div></div><button type="button" class="btn btn-red" onclick="removerItemPedido(this,\''+prefix+'\')">Remover produto</button>';
+  host.appendChild(row);atualizarTotaisItens(prefix);
+}
+function removerItemPedido(btn,prefix){
+  var host=document.getElementById(prefix+'-itens');
+  if(host.children.length<=1)return alert('O pedido precisa ter pelo menos um produto.');
+  btn.closest('.pedido-item').remove();atualizarTotaisItens(prefix);
+}
+function lerItensPedido(prefix,validar){
+  var rows=Array.from(document.querySelectorAll('#'+prefix+'-itens .pedido-item'));
+  if(validar&&!rows.length)throw Error('Adicione pelo menos um produto.');
+  return rows.map(function(row,i){
+    var pid=+row.querySelector('.item-prod').value,qty=Number(row.querySelector('.item-qty').value),pu=Number(row.querySelector('.item-pu').value);
+    if(validar&&(!Number.isFinite(qty)||!Number.isFinite(pu)||qty<=0||pu<=0))throw Error('Informe quantidade e preço maiores que zero no produto '+(i+1)+'.');
+    if(validar&&!pid&&!(prefix==='ep'&&row._base&&row._base.qty!=null))throw Error('Selecione o produto '+(i+1)+'.');
+    var base=row._base||{},prod=D.produtos.find(function(p){return +p.id===pid;});
+    var kg=prod?(prod.un==='kg'?qty:0):(Number(base.qty)===qty?base.kg:qty);
+    return Object.assign({},base,{pid:pid,qty:qty,pu:pu,mk:Number(base.mk)||0,kg:kg||0});
+  });
+}
+function atualizarTotaisItens(prefix){
+  var itens=lerItensPedido(prefix,false),valor=itens.reduce(function(a,x){return a+x.qty*x.pu;},0);
+  document.querySelectorAll('#'+prefix+'-itens .item-subtotal').forEach(function(el,i){el.textContent=fmt(itens[i].qty*itens[i].pu);});
+  var total=document.getElementById(prefix+'-total');if(total)total.value=fmt(valor);
+  var pct=Number(document.getElementById(prefix+'-com')?.value)||0;
+  var trib=document.getElementById(prefix+'-trib')?.value==='1',bruta=valor*pct/100;
+  var com=document.getElementById(prefix+'-comissao');
+  if(com)com.textContent='Comissão bruta: '+fmt(bruta)+' · A receber'+(trib?' (desconto de 6%)':'')+': '+fmt(bruta*(trib?0.94:1));
+}
+
 function novoPed(itsPre){
   const cliOpts=[...D.clientes].filter(c=>c.status!=='inativo').sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   const fornOpts=[...D.fornecedores].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(f=>`<option value="${f.id}">${f.nome}</option>`).join('');
@@ -1265,12 +1310,7 @@ function novoPed(itsPre){
       <div class="fg" style="margin:0"><label>Nº Pedido / Processo</label><input type="text" class="fi" id="np-nforn" placeholder="Número da representada"></div>
       <div class="fg" style="margin:0"><label>Data de Faturamento</label><input type="date" class="fi" id="np-fat"></div>
     </div>
-    <div class="fg" style="margin-bottom:10px"><label>Produto</label><select class="fi" id="np-produto" onchange="preenchePuProd()"><option value="">-- selecione produto --</option>${prodOpts}</select></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-      <div class="fg" style="margin:0"><label>Quantidade (kg / un)</label><input type="number" class="fi" id="np-qty" value="${it?it.qty||'':''}" step="0.01" placeholder="0" oninput="calcTotalPed()"></div>
-      <div class="fg" style="margin:0"><label>Preço Unitário (R$)</label><input type="number" class="fi" id="np-pu" value="${it?it.pu||'':''}" step="0.01" placeholder="0,00" oninput="calcTotalPed()"></div>
-      <div class="fg" style="margin:0"><label>Total (auto)</label><input class="fi" id="np-total" readonly style="background:var(--bg1);color:var(--gold);font-weight:700" placeholder="R$ 0,00"><div id="np-comissao" style="margin-top:6px;color:var(--green);font-size:12px;font-weight:700">Comissão: R$ 0,00</div></div>
-    </div>
+    ${pedidoItensCampos('np')}
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg" style="margin:0"><label>% Comissão</label><input type="number" class="fi" id="np-com" value="3.5" step="0.01" oninput="calcTotalPed()"></div>
       <div class="fg" style="margin:0"><label>Tributação</label><select class="fi" id="np-trib"><option value="1">Tributável</option><option value="0">Não Tributável</option></select></div>
@@ -1278,7 +1318,8 @@ function novoPed(itsPre){
     </div>
     <div class="fg"><label>Observações</label><textarea class="fi" id="np-obs" rows="2" placeholder="Observações adicionais..."></textarea></div>
   `,`<button class="btn btn-gold" onclick="confPed()">✓ Confirmar</button><button class="btn btn-out" onclick="fM()">Cancelar</button>`);
-  setTimeout(calcTotalPed,50);
+  (Array.isArray(itsPre)&&itsPre.length?itsPre:[null]).forEach(function(item){adicionarItemPedido('np',item);});
+  document.getElementById('np-trib').addEventListener('change',calcTotalPed);
 }
 function preenchePuProd(){
   const sel=document.getElementById('np-produto');
@@ -1290,30 +1331,18 @@ function preenchePuProd(){
   // Don't auto-fill pu — products no longer have preco
   // Just mark the unit
 }
-function calcTotalPed(){
-  const qty=parseFloat(document.getElementById('np-qty')?.value)||0;
-  const pu=parseFloat(document.getElementById('np-pu')?.value)||0;
-  const valor=qty*pu;
-  const pct=parseFloat(document.getElementById('np-com')?.value)||0;
-  const tot=document.getElementById('np-total');
-  const com=document.getElementById('np-comissao');
-  if(tot)tot.value='R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  if(com)com.textContent='Comissão: R$ '+(valor*pct/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-}
+function calcTotalPed(){atualizarTotaisItens('np');}
 async function confPed(){
   const fid=+document.getElementById('np-fid').value;
   const cid=+document.getElementById('np-cli').value;
   const data=document.getElementById('np-data').value;
-  const qty=parseFloat(document.getElementById('np-qty')?.value)||1;
-  const pu=parseFloat(document.getElementById('np-pu')?.value)||0;
-  const valor=qty*pu;
+  let itens;try{itens=lerItensPedido('np',true);}catch(e){alert(e.message);return;}
+  const valor=itens.reduce((s,i)=>s+i.qty*i.pu,0);
   if(!cid){alert('Selecione um cliente.');return;}
   if(!fid){alert('Selecione uma representada.');return;}
   if(!data){alert('Informe a data.');return;}
   if(!valor){alert('Informe o preço unitário e a quantidade.');return;}
-  const prodId=+document.getElementById('np-produto')?.value||0;
-  const prodNome=prodId?(D.produtos.find(x=>x.id===prodId)?.nome||''):(document.getElementById('np-produto')?.options?.[document.getElementById('np-produto')?.selectedIndex]?.text||'');
-  const prod=prodNome;
+  const prod=itens.map(i=>D.produtos.find(x=>+x.id===+i.pid)?.nome||'').filter(Boolean).join(', ');
   const pad=n=>String(n).padStart(3,'0');
   const isFM=isFastMalhas(fid);
   const nfornRaw=document.getElementById('np-nforn')?.value?.trim()||'';
@@ -1326,16 +1355,16 @@ async function confPed(){
   }else{
     id=(isFM?'PROC':'PED')+'-'+pad(D.nxt.ped++);
   }
-  const item={pid:prodId||0,qty:qty,pu:pu,mk:0,kg:qty};
+
   const entrada=document.getElementById('np-entrada')?.value||'';
   const nforn=nfornRaw;
   const obs=[nforn?'Fornecedor: '+nforn:'',prod?'Produto: '+prod:'',fatDate?'Faturamento: '+fatDate:'',entrada?'Entrada: '+entrada:'',document.getElementById('np-obs')?.value?.trim()?'Observação: '+document.getElementById('np-obs').value.trim():''].filter(Boolean).join(' | ');
   const ped={
     id,cid,fid,data,
-    itens:[item],
+    itens,
     status:'aguardando',
     confirmado:false,
-    cpct:+document.getElementById('np-com').value||3.5,
+    cpct:Number(document.getElementById('np-com').value),
     trib:document.getElementById('np-trib').value==='1',
     obs,
     mes_com:competencia?MESF[(+competencia.slice(5,7)||1)-1]:'',
@@ -1348,29 +1377,22 @@ async function confPed(){
   const c=D.clientes.find(x=>x.id===cid);
   if(c&&!await aplicarStatusGrupoCliente(c.id,'ativo',{uc:data,up:id})){alert('Pedido salvo, mas não foi possível ativar todo o grupo econômico.');}
   fM();await sbLoad();
-  if(isFastMalhas(fid))rProcessos();else rPedidos();
-  updBadge();rDash();
+  updBadge();go(isFastMalhas(fid)?'processos':'pedidos');
 }
-function calcEpTotal(){
-  const qty=parseFloat(document.getElementById('ep-qty')?.value)||0;
-  const pu=parseFloat(document.getElementById('ep-pu')?.value)||0;
-  const valor=qty*pu;
-  const pct=parseFloat(document.getElementById('ep-com')?.value)||0;
-  const tot=document.getElementById('ep-total');
-  const com=document.getElementById('ep-comissao');
-  if(tot)tot.value='R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  if(com)com.value='R$ '+(valor*pct/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-}
+function calcEpTotal(){atualizarTotaisItens('ep');}
 
 async function savePed(id){
-  const p=D.pedidos.find(x=>x.id===id);if(!p)return;
+  const original=D.pedidos.find(x=>x.id===id);if(!original)return;
+  let itens;try{itens=lerItensPedido('ep',true);}catch(e){alert(e.message);return;}
+  const p=Object.assign({},original,{itens:itens});
+  delete p.valor;
   const _epVistaPedidos=capturarVistaPedidos();
   const _epPagina=window.LEXUS_PAGE||'pedidos';
   const _epMetaAntes=pedMeta(p);
   p.cid=+document.getElementById('ep-cli').value||p.cid;
   p.fid=+document.getElementById('ep-forn').value||p.fid;
   p.data=document.getElementById('ep-data').value||p.data;
-  p.cpct=parseFloat(document.getElementById('ep-com').value)||p.cpct;
+  p.cpct=Number(document.getElementById('ep-com').value);
   p.trib=document.getElementById('ep-trib').value==='1';
   p.status=document.getElementById('ep-status').value||p.status;
   var _epComp=document.getElementById('ep-mes').value||'';
@@ -1388,23 +1410,15 @@ async function savePed(id){
   }else if(p.valor_recebido<=0){
     p.valor_recebido=0;p.recebido_em=null;
   }
-  const epQty2=parseFloat(document.getElementById('ep-qty')?.value)||0;
-  const epPu2=parseFloat(document.getElementById('ep-pu')?.value)||0;
-  const epItemAntes=(p.itens&&p.itens[0])||{};
-  const epProd2=+document.getElementById('ep-prod')?.value||+epItemAntes.pid||0;
-  if(epQty2>0&&epPu2>0){
-    p.itens=[{pid:epProd2,qty:epQty2,pu:epPu2,mk:+epItemAntes.mk||0,kg:epQty2}];
-  }
   var _epEntrada=document.getElementById('ep-entrada')?.value||'';
   var _epFat=document.getElementById('ep-fat')?.value||'';
   var _epNforn=(document.getElementById('ep-nforn')?.value||'').trim();
   var _epObs=document.getElementById('ep-obs').value||'';
-  var _epProdSel=D.produtos.find(x=>+x.id===+epProd2);
-  var _epProdNome=_epProdSel?_epProdSel.nome:_epMetaAntes.produto;
+  var _epProdNome=p.itens.map(i=>D.produtos.find(x=>+x.id===+i.pid)?.nome||'').filter(Boolean).join(', ')||_epMetaAntes.produto;
   p.obs=[_epNforn?'Fornecedor: '+_epNforn:'',_epProdNome?'Produto: '+_epProdNome:'',_epFat?'Faturamento: '+_epFat:'',_epEntrada?'Entrada: '+_epEntrada:'',_epObs?'Observação: '+_epObs:''].filter(Boolean).join(' | ');
   p.numero_representada=_epNforn||null;p.faturado_em=_epFat||null;
   try{
-    await sbUpsert('pedidos',safePed(p));
+    if(!await sbUpsert('pedidos',safePed(p)))throw Error('Não foi possível salvar o pedido. Tente novamente.');
     fM();
     await sbLoad();
     updBadge();
@@ -2593,13 +2607,7 @@ function editPed(id){
       <div class="fg"><label>Data de Faturamento</label><input type="date" class="fi" id="ep-fat" value="${pedFatDate(p)}"></div>
       <div class="fg"><label>Competência a Receber</label><input type="month" class="fi" id="ep-mes" value="${pedCompetencia(p)}"></div>
     </div>
-    <div class="fg" style="margin-bottom:10px"><label>Produto</label><select class="fi" id="ep-prod">${prodOpts}</select></div>
-    <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-      <div class="fg"><label>Quantidade (kg/un)</label><input type="number" class="fi" id="ep-qty" value="${epQty}" step="0.01" oninput="calcEpTotal()"></div>
-      <div class="fg"><label>Preço Unitário (R$)</label><input type="number" class="fi" id="ep-pu" value="${epPu}" step="0.01" oninput="calcEpTotal()"></div>
-      <div class="fg"><label>Total (auto)</label><input class="fi" id="ep-total" readonly style="background:var(--bg1);color:var(--gold);font-weight:700" value="R$ ${(epQty*epPu||cT(p)).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></div>
-    </div>
-    <div class="fg" style="margin-bottom:10px"><label>Comissão prevista (auto)</label><input class="fi" id="ep-comissao" readonly style="background:var(--bg1);color:var(--green);font-weight:700" value="R$ ${((epQty*epPu||cT(p))*(parseFloat(p.cpct)||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}"></div>
+    ${pedidoItensCampos('ep')}
     <div class="fg-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="fg"><label>Situação da Comissão</label><select class="fi" id="ep-stcom">${['prevista','confirmada','vencida','recebida','conciliada'].map(s=>`<option value="${s}"${(p.status_comissao||'prevista')===s?' selected':''}>${s[0].toUpperCase()+s.slice(1)}</option>`).join('')}</select></div>
       <div class="fg"><label>Valor Recebido</label><input type="number" step="0.01" class="fi" id="ep-vrec" value="${+p.valor_recebido||0}"></div>
@@ -2610,6 +2618,8 @@ function editPed(id){
       <div class="fg"><label>Observações</label><textarea class="fi" id="ep-obs" rows="2">${meta.observacao||''}</textarea></div>
     </div>
   `,`<button class="btn btn-gold" onclick="savePed('${id}')">💾 Salvar</button><button class="btn btn-out" onclick="fM()">Cancelar</button>`);
+  (p.itens&&p.itens.length?p.itens:[{pid:epProdId,qty:epQty,pu:epPu}]).forEach(function(item){adicionarItemPedido('ep',item);});
+  document.getElementById('ep-trib').addEventListener('change',calcEpTotal);
 }
 window.onerror=function(msg,src,line,col,err){
   console.error('ERRO REAL:',msg,'linha:',line,'col:',col,err?err.stack:'');
