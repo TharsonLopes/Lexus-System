@@ -509,7 +509,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-09-04-pedidos-multiplos-produtos-1';
+const APP_BUILD='2026-09-04-pedidos-multiplos-produtos-2';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -1263,9 +1263,9 @@ function adicionarItemPedido(prefix,item){
   var row=document.createElement('div');row.className='pedido-item';
   row._base=base;
   var opts='<option value="0">'+(item&&!item.pid?'Produto não vinculado — selecione se desejar':'Selecione o produto')+'</option>';
-  opts+=D.produtos.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR');}).map(function(p){return '<option value="'+p.id+'"'+(+p.id===+base.pid?' selected':'')+'>'+esc(p.nome||'Produto')+' ('+esc(p.un||'un')+')</option>';}).join('');
+  opts+=D.produtos.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR');}).map(function(p){return '<option value="'+p.id+'"'+(+p.id===+base.pid?' selected':'')+'>'+crmEsc(p.nome||'Produto')+' ('+crmEsc(p.un||'un')+')</option>';}).join('');
   if(base.pid&&!D.produtos.some(function(p){return +p.id===+base.pid;}))opts+='<option selected value="'+Number(base.pid)+'">Produto anteriormente vinculado</option>';
-  row.innerHTML='<div class="fg"><label>Produto</label><select class="fi item-prod" onchange="atualizarTotaisItens(\''+prefix+'\')">'+opts+'</select></div><div class="pedido-item-grid"><div class="fg"><label>Quantidade</label><input class="fi item-qty" type="number" min="0.000001" step="any" value="'+esc(base.qty==null?'':String(base.qty))+'" oninput="atualizarTotaisItens(\''+prefix+'\')"></div><div class="fg"><label>Preço unitário (R$)</label><input class="fi item-pu" type="number" min="0.000001" step="any" value="'+esc(base.pu==null?'':String(base.pu))+'" oninput="atualizarTotaisItens(\''+prefix+'\')"></div><div class="fg"><label>Subtotal</label><div class="item-subtotal" style="padding:10px 0;color:var(--gold)"></div></div></div><button type="button" class="btn btn-red" onclick="removerItemPedido(this,\''+prefix+'\')">Remover produto</button>';
+  row.innerHTML='<div class="fg"><label>Produto</label><select class="fi item-prod" onchange="atualizarTotaisItens(\''+prefix+'\')">'+opts+'</select></div><div class="pedido-item-grid"><div class="fg"><label>Quantidade</label><input class="fi item-qty" type="number" min="0.000001" step="any" value="'+crmEsc(base.qty==null?'':String(base.qty))+'" oninput="atualizarTotaisItens(\''+prefix+'\')"></div><div class="fg"><label>Preço unitário (R$)</label><input class="fi item-pu" type="number" min="0.000001" step="any" value="'+crmEsc(base.pu==null?'':String(base.pu))+'" oninput="atualizarTotaisItens(\''+prefix+'\')"></div><div class="fg"><label>Subtotal</label><div class="item-subtotal" style="padding:10px 0;color:var(--gold)"></div></div></div><button type="button" class="btn btn-red" onclick="removerItemPedido(this,\''+prefix+'\')">Remover produto</button>';
   host.appendChild(row);atualizarTotaisItens(prefix);
 }
 function removerItemPedido(btn,prefix){
