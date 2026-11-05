@@ -509,7 +509,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-09-04-pedidos-multiplos-produtos-2';
+const APP_BUILD='2026-11-05-auditoria-dashboard-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -556,15 +556,10 @@ const gG=id=>D.grupos.find(g=>g.id===id)||null;
 // Todas as partes do sistema consomem estas funções
 const cT=p=>{
   if(!p||p.status==='cancelado')return 0;
-  if(!p.itens||!p.itens.length)return parseFloat(p.valor)||0;
-  // If single item with qty=1 and no real qty split, pu IS the total
-  var its=p.itens;
-  var raw=its.reduce((s,i)=>s+(parseFloat(i.pu)||0)*(parseFloat(i.qty)||0),0);
-  // Sanity: if stored valor exists and raw is wildly different (>2x), use stored valor
-  if(p.valor&&raw>0&&Math.abs(raw-parseFloat(p.valor))>parseFloat(p.valor)*0.05){
-    return parseFloat(p.valor)||0;
-  }
-  return raw||parseFloat(p.valor)||0;
+  var gravado=parseFloat(p.valor_venda);
+  if(Number.isFinite(gravado))return gravado;
+  var raw=(p.itens||[]).reduce((s,i)=>s+(parseFloat(i.pu)||0)*(parseFloat(i.qty)||0),0);
+  return raw||0;
 };
 // Comissão: bruta, desconto tributário e variável (líquida).
 // Não tributáveis por regra Lexus: 2R, Dieu Fort, Bônus, RM Têxtil e Evo Solar.
@@ -591,14 +586,21 @@ const cCPendente=p=>{
 const cPeso=p=>{
   if(!p||p.status==='cancelado')return 0;
   return(p.itens||[]).reduce((s,i)=>{
-    if(i.kg&&i.kg>0)return s+parseFloat(i.kg);
-    return gP(i.pid).un==='kg'?s+parseFloat(i.qty||0):s;
+    var prod=gP(+i.pid);
+    if(prod.un!=='kg')return s;
+    var kg=parseFloat(i.kg);
+    return s+(Number.isFinite(kg)&&kg>0?kg:(parseFloat(i.qty)||0));
   },0);
 };
 const cQtd=p=>{
   if(!p||p.status==='cancelado')return 0;
-  return parseFloat(0)||0;
+  return(p.itens||[]).reduce((s,i)=>s+(parseFloat(i.qty)||0),0);
 };
+const anoReferenciaPedido=p=>String((p&&p.data)||(p&&p.faturado_em)||(p&&p.competencia_comissao)||'').slice(0,4);
+const pedidoNoAno=(p,ano=ANO_AT)=>!p.deleted_at&&p.status!=='cancelado'&&anoReferenciaPedido(p)===String(ano);
+const pedidoFaturado=p=>!!p&&!p.deleted_at&&['faturado','entregue','pago'].includes(p.status);
+const comissaoRecebida=p=>!!p&&!p.deleted_at&&['recebida','conciliada'].includes(p.status_comissao)?(parseFloat(p.valor_recebido)||0):0;
+const anoComissaoRecebida=p=>String((p&&p.recebido_em)||(p&&p.competencia_comissao)||'').slice(0,4);
 // Filtro padrão: exclui cancelados, inclui ocultos nos números
 const pedidosAtivos=()=>D.pedidos.filter(p=>p.status!=='cancelado');
 const pedidosVisiveis=(tipo)=>D.pedidos.filter(p=>(!tipo||p.tipo===tipo)&&p.status!=='cancelado');
@@ -755,8 +757,8 @@ async function buscarCNPJ(pfx,stId){
 function rDash(){
   console.log("Render: rDash");
   const pref=`${ANO_AT}-${String(MES_AT+1).padStart(2,'0')}`;
-  const pm=D.pedidos.filter(p=>p.data&&String(p.data||'').startsWith(pref)&&p.status!=='cancelado');
-  const fatM=D.pedidos.filter(function(p){return !p.deleted_at&&['faturado','entregue'].includes(p.status)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(pref);}).reduce(function(s,p){return s+cT(p);},0);
+  const pm=D.pedidos.filter(p=>!p.deleted_at&&p.data&&String(p.data).startsWith(pref)&&p.status!=='cancelado');
+  const fatM=D.pedidos.filter(function(p){return pedidoFaturado(p)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(pref);}).reduce(function(s,p){return s+cT(p);},0);
   const compAtual=String(ANO_AT)+'-'+String(MES_AT+1).padStart(2,'0');
   const pedidosComMes=D.pedidos.filter(p=>!p.deleted_at&&pedCompetencia(p)===compAtual);
   const comMT=pedidosComMes.filter(p=>p.trib).reduce((s,p)=>s+cC(p),0);
@@ -768,7 +770,7 @@ function rDash(){
   const meta=D.cfg.meta_mensal||150000;
   const metaVendMes=D.cfg.meta_vendas||0;
   const px2=ANO_AT+'-'+String(MES_AT+1).padStart(2,'0');
-  const fatMVend=D.pedidos.filter(p=>p.status!=='cancelado'&&p.data&&String(p.data||'').startsWith(px2)).reduce((s,p)=>s+cT(p),0);
+  const fatMVend=D.pedidos.filter(p=>!p.deleted_at&&p.status!=='cancelado'&&p.data&&String(p.data).startsWith(px2)).reduce((s,p)=>s+cT(p),0);
   const vendMesPct=metaVendMes>0?Math.min(100,((fatMVend/metaVendMes)*100)).toFixed(1):0;
   const metaVend=D.cfg.meta_vendas||0;
   const vendPct=metaVend>0?Math.min(100,(fatTotal/metaVend*100)).toFixed(1):'—';
@@ -784,7 +786,7 @@ function rDash(){
     p.itens.forEach(i=>pvM[i.pid]=(pvM[i.pid]||0)+(parseFloat(i.qty)||0));
   });
   // A base operacional contém os registros de 2026. Inclui importados sem data no ranking anual.
-  const pa=D.pedidos.filter(p=>!p.deleted_at&&p.status!=='cancelado');
+  const pa=D.pedidos.filter(p=>pedidoNoAno(p));
   const pvA={},cvA={},fvA={};
   pa.forEach(p=>{
     cvA[p.cid]=(cvA[p.cid]||0)+cT(p);
@@ -807,7 +809,7 @@ function rDash(){
   // Comparação equivalente: somente pedidos com mês de comissão informado (faturados).
   D.hist.at=Array.from({length:12},function(_,m){
     var px=String(ANO_AT)+'-'+String(m+1).padStart(2,'0');
-    return D.pedidos.filter(function(p){return !p.deleted_at&&['faturado','entregue'].includes(p.status)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(px);}).reduce(function(s,p){return s+cT(p);},0);
+    return D.pedidos.filter(function(p){return pedidoFaturado(p)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(px);}).reduce(function(s,p){return s+cT(p);},0);
   });
   var mxComp=Math.max.apply(null,ant2025.concat(D.hist.at.slice(0,MES_AT+1)).concat([1]));
 
@@ -820,9 +822,11 @@ function rDash(){
   const mxCom=Math.max(...cMes.map(x=>x.t+x.nt),1);
 
   // Total de Vendas: apenas pedidos PED- (entrados manualmente) + PROC- no ano
-  var fatTotal=D.pedidos.filter(function(p){return !p.deleted_at&&p.status!=='cancelado';}).reduce(function(s,p){return s+cT(p);},0);
+  var fatTotal=D.pedidos.filter(function(p){return pedidoNoAno(p);}).reduce(function(s,p){return s+cT(p);},0);
   var _stats=statsAnoVigente();
-  var _pa={fat:_stats.fatAno,com:_stats.comAno};
+  var _comPagaAno=D.pedidos.filter(function(p){return anoComissaoRecebida(p)===String(ANO_AT);}).reduce(function(s,p){return s+comissaoRecebida(p);},0);
+  var _comPagaMes=D.pedidos.filter(function(p){var d=String(p.recebido_em||p.competencia_comissao||'');return d.startsWith(pref);}).reduce(function(s,p){return s+comissaoRecebida(p);},0);
+  var _pa={fat:_stats.fatAno,com:_comPagaAno};
   var _fatAteAtual=_stats.fM.slice(0,MES_AT+1).reduce(function(a,b){return a+b;},0),_nM=Math.max(1,MES_AT+1),_comMesAtual=_stats.cM[MES_AT]||0;var _mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][new Date().getMonth()];var _pm=planilhaMes(_mn);
   var _pedPend=D.pedidos.filter(function(p){return p.status==='aguardando'&&!isFastMalhas(p.fid);}).length;
   var _pedFaturar=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&!isFastMalhas(p.fid);}).length;
@@ -866,11 +870,11 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
     <!-- 2. Média Mensal -->
     <div class="stat"><div class="si sib"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div><div class="sl">Média Mensal de Vendas</div><div class="sv">${fmt(fatTotal/_nM)}</div><div class="st neu">Total de vendas ÷ ${_nM} meses</div></div>
     <!-- 3. Comissão Total 2026 -->
-    <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Total 2026</div><div class="sv" style="font-size:17px">${fmt(_pa.com)}</div><div class="st up">Acumulado no ano</div></div>
+    <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Recebida ${ANO_AT}</div><div class="sv" style="font-size:17px">${fmt(_pa.com)}</div><div class="st up">Somente lançadas como recebidas</div></div>
     <!-- 4. Faturamento do Mês -->
     <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento ${MESF[MES_AT]}</div><div class="sv">${fmt(fatM)}</div><div class="st up">Pela data de faturamento</div></div>
     <!-- 5. Comissão do Mês -->
-    <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="sl">Comissão ${_mn}</div><div class="sv" style="font-size:17px">${fmt(_comMesAtual)}</div><div class="st neu">Mês atual</div></div>
+    <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="sl">Comissão Recebida — ${_mn}</div><div class="sv" style="font-size:17px">${fmt(_comPagaMes)}</div><div class="st neu">Recebida no mês</div></div>
     <!-- 6. Comissão Tributável -->
     <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="sl">Comissão Tributável</div><div class="sv" style="font-size:17px">${fmt(comMT)}</div><div class="st neu">Mês atual · T</div></div>
     <!-- 7. Comissão Não Tributável -->
@@ -882,7 +886,7 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
     <!-- 10. Processos a Faturar -->
     <div class="stat clk" onclick="go('processos');setTimeout(function(){var el=document.getElementById('proc-fil-st');if(el){el.value='_faturar';filtProc();}},150)"><div class="si sir"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></div><div class="sl">Processos a Faturar</div><div class="sv">${_procFaturar}</div><div class="st ${_procFaturar>0?'dn':'up'}">${_procFaturar>0?'Fast Malhas pendentes':'Em dia'}</div></div>
     <!-- 11. Clientes Ativos -->
-    <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="sl">Clientes Ativos</div><div class="sv">${D.clientes.filter(c=>c.status!=='inativo').length}</div><div class="st up">Na base</div></div>
+    <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="sl">Clientes Ativos</div><div class="sv">${D.clientes.filter(c=>!clienteInativoEfetivo(c)).length}</div><div class="st up">Na base</div></div>
     <!-- 12. Clientes Inativos -->
     <div class="stat clk" onclick="verInativos()"><div class="si sir"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg></div><div class="sl">Clientes Inativos (Clique)</div><div class="sv">${inat.length}</div><div class="st ${inat.length>0?'dn':'up'}">${inat.length>0?'Sem compras recentes':'Todos ativos'}</div></div>
     <!-- Pipeline de Faturamento -->
@@ -969,10 +973,10 @@ function atividadeGrupoCliente(c){
 }
 function clienteInativoEfetivo(c){
   var a=atividadeGrupoCliente(c);
-  if(a.membros.length&&a.membros.every(function(x){return x.status==='inativo';}))return true;
-  if(!a.ultimo)return false;
+  if(!a.ultimo)return true;
   return dias(a.ultimo.data)>180;
 }
+function clienteStatusEfetivo(c){return clienteInativoEfetivo(c)?'inativo':'ativo';}
 function verInativos(){
   const inat=D.clientes.filter(clienteInativoEfetivo).sort(function(a,b){
     var aa=atividadeGrupoCliente(a),bb=atividadeGrupoCliente(b);
@@ -1097,8 +1101,8 @@ function filtPed(){
 }
 
 function rPedTb(lista){
-  const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','entregue':'Entregue','cancelado':'Cancelado'};
-  const sCls={'em_producao':'st-em_producao','aguardando':'st-aguardando','faturado':'st-faturado','entregue':'st-entregue','cancelado':'st-cancelado'};
+  const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','pago':'Pago ao fornecedor','entregue':'Entregue','cancelado':'Cancelado'};
+  const sCls={'em_producao':'st-em_producao','aguardando':'st-aguardando','faturado':'st-faturado','pago':'st-faturado','entregue':'st-entregue','cancelado':'st-cancelado'};
   const tb=document.getElementById('p-tb');if(!tb)return;
   const _allByDate=[...lista].sort((a,b)=>(a.data||'').localeCompare(b.data||'')||(a.id||'').localeCompare(b.id||''));
   const _seqMap={};_allByDate.forEach((p,i)=>{_seqMap[p.id]=i+1;});
@@ -1198,6 +1202,8 @@ function safePed(p){
     status_comissao:p.status_comissao||'prevista',
     valor_recebido:+p.valor_recebido||0,
     recebido_em:p.recebido_em||null,
+    valor_venda:v,
+    valor_comissao:Math.round((v*(Number.isFinite(Number(p.cpct))?Number(p.cpct):3.5)/100)*100)/100,
     deleted_at:p.deleted_at||null
   };
 }
@@ -1547,19 +1553,19 @@ function rCli(){
 }
 function filtCli(q){
   const s=(q||'').toLowerCase();const sf=document.getElementById('c-sf')?.value||'';const seg=document.getElementById('c-seg')?.value||'';
-  rCliTb(D.clientes.filter(c=>(!s||c.nome.toLowerCase().includes(s)||c.cnpj.includes(s)||c.cidade.toLowerCase().includes(s))&&(!sf||c.status===sf)&&(!seg||c.seg===seg)));
+  rCliTb(D.clientes.filter(c=>(!s||String(c.nome||'').toLowerCase().includes(s)||String(c.cnpj||'').includes(s)||String(c.cidade||'').toLowerCase().includes(s))&&(!sf||clienteStatusEfetivo(c)===sf)&&(!seg||c.seg===seg)));
 }
 function rCliTb(lista){
   const tb=document.getElementById('c-tb');if(!tb)return;
-  tb.innerHTML=lista.map(c=>{const g=gG(c.gid);const d=dias(c.uc);return`<tr>
+  tb.innerHTML=lista.map(c=>{const g=gG(c.gid);const a=atividadeGrupoCliente(c);const d=a.ultimo?dias(a.ultimo.data):9999;const efetivo=clienteStatusEfetivo(c);return`<tr>
     <td><strong>${c.nome}</strong></td>
     <td style="color:var(--cream4);font-size:11.5px">${c.cnpj||'—'}</td>
     <td>${c.cidade||'—'}/${c.uf||'—'}</td>
     <td><span class="badge bggr">${c.seg}</span></td>
     <td>${g?`<span class="badge bgb" style="font-size:9px">${g.nome}</span>`:'<span style="color:var(--cream4);font-size:11px">—</span>'}</td>
-    <td style="color:${d>90?'var(--red)':d>30?'var(--gold)':'var(--green)'};font-size:12px">${fmtD(c.uc)}</td>
-    <td><span class="badge ${c.status==='ativo'?'bgg':'bgr'}">${c.status==='ativo'?'Ativo':'Inativo'}</span></td>
-    <td><div class="tact"><button class="btn btn-out btn-xs" onclick="editCli(${c.id})">Editar</button><button class="btn btn-out btn-xs" onclick="togCli(${c.id})">${c.status==='ativo'?'Desativar':'Ativar'}</button></div></td>
+    <td style="color:${d>180?'var(--red)':d>90?'var(--gold)':'var(--green)'};font-size:12px">${a.ultimo?fmtD(a.ultimo.data):'—'}</td>
+    <td><span class="badge ${efetivo==='ativo'?'bgg':'bgr'}">${efetivo==='ativo'?'Ativo':'Inativo'}</span></td>
+    <td><div class="tact"><button class="btn btn-out btn-xs" onclick="editCli(${c.id})">Editar</button><button class="btn btn-out btn-xs" onclick="togCli(${c.id})">${efetivo==='ativo'?'Desativar':'Ativar'}</button></div></td>
   </tr>`;}).join('')||`<tr><td colspan="8" style="text-align:center;color:var(--cream4);padding:32px">Nenhum cliente encontrado.</td></tr>`;
 }
 async function aplicarStatusGrupoCliente(id,status,extra){
@@ -1576,7 +1582,7 @@ async function aplicarStatusGrupoCliente(id,status,extra){
 }
 async function togCli(id){
   var c=D.clientes.find(function(x){return +x.id===+id;});if(!c)return;
-  var novo=c.status==='ativo'?'inativo':'ativo';
+  var novo=clienteStatusEfetivo(c)==='ativo'?'inativo':'ativo';
   if(!await aplicarStatusGrupoCliente(c.id,novo)){alert('Não foi possível atualizar o grupo econômico.');return;}
   await sbLoad();rCli();
 }
@@ -2340,22 +2346,20 @@ var SB_URL='https://ngnchrasfwytlsoqxbgd.supabase.co',SB_KEY='eyJhbGciOiJIUzI1Ni
 var SB_H={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 
 function statsAnoVigente(){
-  // Agrega faturamento e comissão por mês a partir do Supabase (D.pedidos),
-  // usando mes_com como referência — mesma chave usada por cC() para
-  // reconhecer a comissão. Fonte única para Dashboard e Comissionamento.
   var fM=Array(12).fill(0),cM=Array(12).fill(0);
   var porRep={};
-  D.pedidos.filter(function(p){var co=pedCompetencia(p);return !p.deleted_at&&p.mes_com&&co&&co.startsWith(String(ANO_AT));}).forEach(function(p){
-    var co=pedCompetencia(p),mi=(+co.slice(5,7)||0)-1;
-    if(mi<0)return;
-    var v=cT(p),c=cC(p);
-    fM[mi]+=v;cM[mi]+=c;
-    if(!porRep[p.fid])porRep[p.fid]={fat:Array(12).fill(0),com:Array(12).fill(0)};
-    porRep[p.fid].fat[mi]+=v;
-    porRep[p.fid].com[mi]+=c;
+  D.pedidos.filter(function(p){return pedidoFaturado(p)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(String(ANO_AT));}).forEach(function(p){
+    var mi=(+pedFatDate(p).slice(5,7)||0)-1;if(mi<0)return;
+    fM[mi]+=cT(p);
   });
-  var fatAno=fM.reduce(function(a,b){return a+b;},0);
-  var comAno=cM.reduce(function(a,b){return a+b;},0);
+  D.pedidos.filter(function(p){var co=pedCompetencia(p);return !p.deleted_at&&p.status!=='cancelado'&&co&&co.startsWith(String(ANO_AT));}).forEach(function(p){
+    var co=pedCompetencia(p),mi=(+co.slice(5,7)||0)-1;if(mi<0)return;
+    var v=cT(p),c=cC(p);cM[mi]+=c;
+    if(!porRep[p.fid])porRep[p.fid]={fat:Array(12).fill(0),com:Array(12).fill(0)};
+    porRep[p.fid].fat[mi]+=v;porRep[p.fid].com[mi]+=c;
+  });
+  var fatAno=D.pedidos.filter(function(p){return pedidoNoAno(p)&&pedidoFaturado(p);}).reduce(function(a,p){return a+cT(p);},0);
+  var comAno=D.pedidos.filter(function(p){return anoComissaoRecebida(p)===String(ANO_AT);}).reduce(function(a,p){return a+comissaoRecebida(p);},0);
   var nMfat=fM.filter(function(v){return v>0;}).length||1;
   var nMcom=cM.filter(function(v){return v>0;}).length||1;
   return{fM:fM,cM:cM,fatAno:fatAno,comAno:comAno,nMfat:nMfat,nMcom:nMcom,porRep:porRep};
@@ -2628,6 +2632,7 @@ window.onerror=function(msg,src,line,col,err){
 
 
 'use strict';
+window.PROC_VIEW_STATE=(function(){try{return JSON.parse(sessionStorage.getItem('lexus_proc_view')||'{}');}catch(e){return {};}})();
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
 // ═══════════════════════════════════════════════════════
@@ -2651,9 +2656,10 @@ function rProcessos(){
   // ── Barra de busca ──
   h+='<div class="sb2" style="margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">';
   h+='<div class="sw2"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15" height="15"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
-  h+='<input class="si2" id="proc-busca" placeholder="Processo, cliente..." oninput="filtProc()"></div>';
+  var _procView=window.PROC_VIEW_STATE||{busca:'',status:''};
+  h+='<input class="si2" id="proc-busca" value="'+crmEsc(_procView.busca||'')+'" placeholder="Processo, cliente..." oninput="filtProc()"></div>';
   h+='<select class="fi" id="proc-fil-st" onchange="filtProc()" style="max-width:180px;padding:7px 10px">';
-  h+='<option value="">Todos os status</option><option value="_faturar">A Faturar</option><option value="em_producao">Em Produção</option><option value="aguardando">Aguardando</option><option value="faturado">Faturado</option><option value="entregue">Entregue</option><option value="cancelado">Cancelado</option>';
+  h+='<option value=""'+(!_procView.status?' selected':'')+'>Todos os status</option><option value="_faturar"'+(_procView.status==='_faturar'?' selected':'')+'>A Faturar</option><option value="em_producao"'+(_procView.status==='em_producao'?' selected':'')+'>Em Produção</option><option value="aguardando"'+(_procView.status==='aguardando'?' selected':'')+'>Aguardando</option><option value="faturado"'+(_procView.status==='faturado'?' selected':'')+'>Faturado</option><option value="pago"'+(_procView.status==='pago'?' selected':'')+'>Pago ao fornecedor</option><option value="entregue"'+(_procView.status==='entregue'?' selected':'')+'>Entregue</option><option value="cancelado"'+(_procView.status==='cancelado'?' selected':'')+'>Cancelado</option>';
   h+='</select>';
   h+='<button class="btn btn-gold" onclick="novoPed()">+ Novo Processo</button></div>';
 
@@ -2751,8 +2757,10 @@ function salvarFMProc(np){
 function filtProc(){
   const q=(document.getElementById('proc-busca')?.value||'').toLowerCase();
   const st=document.getElementById('proc-fil-st')?.value||'';
-  const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','entregue':'Entregue','cancelado':'Cancelado'};
-  const sCls={'em_producao':'st-em_producao','aguardando':'st-aguardando','faturado':'st-faturado','entregue':'st-entregue','cancelado':'st-cancelado'};
+  window.PROC_VIEW_STATE={busca:q,status:st};
+  try{sessionStorage.setItem('lexus_proc_view',JSON.stringify(window.PROC_VIEW_STATE));}catch(e){}
+  const sLbl={'em_producao':'Em Produção','aguardando':'Aguardando','faturado':'Faturado','pago':'Pago ao fornecedor','entregue':'Entregue','cancelado':'Cancelado'};
+  const sCls={'em_producao':'st-em_producao','aguardando':'st-aguardando','faturado':'st-faturado','pago':'st-faturado','entregue':'st-entregue','cancelado':'st-cancelado'};
   const lista=D.pedidos.filter(p=>!p.deleted_at&&isFastMalhas(p.fid)).filter(p=>{
     const cNome=(gC(p.cid).nome||'').toLowerCase();
     const m=pedMeta(p);
