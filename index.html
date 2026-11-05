@@ -509,7 +509,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-11-05-auditoria-dashboard-2';
+const APP_BUILD='2026-11-05-cancelados-box-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -554,13 +554,13 @@ const gG=id=>D.grupos.find(g=>g.id===id)||null;
 
 // ═══ MOTOR DE CÁLCULO CENTRALIZADO ═══
 // Todas as partes do sistema consomem estas funções
-const cT=p=>{
-  if(!p||p.status==='cancelado')return 0;
+const cTRegistrado=p=>{
+  if(!p)return 0;
   var gravado=parseFloat(p.valor_venda);
   if(Number.isFinite(gravado))return gravado;
-  var raw=(p.itens||[]).reduce((s,i)=>s+(parseFloat(i.pu)||0)*(parseFloat(i.qty)||0),0);
-  return raw||0;
+  return(p.itens||[]).reduce((s,i)=>s+(parseFloat(i.pu)||0)*(parseFloat(i.qty)||0),0)||0;
 };
+const cT=p=>!p||p.status==='cancelado'?0:cTRegistrado(p);
 // Comissão: bruta, desconto tributário e variável (líquida).
 // Não tributáveis por regra Lexus: 2R, Dieu Fort, Bônus, RM Têxtil e Evo Solar.
 const COMISSAO_FIDS_NAO_TRIBUTAVEIS=[5,6,7,10,11];
@@ -754,6 +754,14 @@ async function buscarCNPJ(pfx,stId){
 // ═══════════════════════════════════════════════════════
 //  DASHBOARD
 
+function verCancelados(){
+  var lista=D.pedidos.filter(function(p){return !p.deleted_at&&p.status==='cancelado'&&anoReferenciaPedido(p)===String(ANO_AT);}).sort(function(a,b){return String(b.data||'').localeCompare(String(a.data||''));});
+  aM('Pedidos Cancelados — '+ANO_AT,
+    '<p style="font-size:12px;color:var(--cream4);margin-bottom:12px">Registro histórico. Estes valores não entram em vendas, faturamento ou comissão.</p>'+
+    (lista.map(function(p){return '<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--br)"><div><strong>'+crmEsc(p.numero_representada||p.id)+'</strong><div style="font-size:11px;color:var(--cream4)">'+crmEsc(gC(p.cid).nome||'—')+' · '+fmtD(p.data)+'</div></div><strong style="color:var(--red)">'+fmt(cTRegistrado(p))+'</strong></div>';}).join('')||'<div class="empty">Nenhum pedido cancelado neste ano.</div>'),
+    '<button class="btn btn-gold" onclick="fM()">Fechar</button>');
+}
+
 function rDash(){
   console.log("Render: rDash");
   const pref=`${ANO_AT}-${String(MES_AT+1).padStart(2,'0')}`;
@@ -828,6 +836,8 @@ function rDash(){
   var _comPagaMes=D.pedidos.filter(function(p){var d=String(p.recebido_em||p.competencia_comissao||'');return d.startsWith(pref);}).reduce(function(s,p){return s+comissaoRecebida(p);},0);
   var _pa={fat:_stats.fatAno,com:_comPagaAno};
   var _fatAteAtual=_stats.fM.slice(0,MES_AT+1).reduce(function(a,b){return a+b;},0),_nM=Math.max(1,MES_AT+1),_comMesAtual=_stats.cM[MES_AT]||0;var _mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][new Date().getMonth()];var _pm=planilhaMes(_mn);
+  var _canceladosAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.status==='cancelado'&&anoReferenciaPedido(p)===String(ANO_AT);});
+  var _canceladosValor=_canceladosAno.reduce(function(total,p){return total+cTRegistrado(p);},0);
   var _pedPend=D.pedidos.filter(function(p){return p.status==='aguardando'&&!isFastMalhas(p.fid);}).length;
   var _pedFaturar=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&!isFastMalhas(p.fid);}).length;
   var _procFaturar=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&isFastMalhas(p.fid);}).length;
@@ -881,6 +891,8 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
     <div class="stat"><div class="si sib"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="sl">Comissão Não Tributável</div><div class="sv" style="font-size:17px">${fmt(comMNT)}</div><div class="st neu">Mês atual · NT</div></div>
     <!-- 8. Peso Vendido -->
     <div class="stat"><div class="si sio"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div><div class="sl">Peso Vendido no Mês</div><div class="sv" style="font-size:17px">${fmtKg(pesoM)}</div><div class="st neu">Somente kg</div></div>
+    <!-- Cancelados: histórico separado, fora dos totais -->
+    <div class="stat clk" onclick="verCancelados()"><div class="si sir"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="8" y1="8" x2="16" y2="16"/></svg></div><div class="sl">Pedidos Cancelados — ${ANO_AT}</div><div class="sv" style="font-size:17px">${_canceladosAno.length}</div><div class="st dn">${fmt(_canceladosValor)} · fora dos totais</div></div>
     <!-- 9. Pedidos a Faturar -->
     <div class="stat clk" onclick="go('pedidos');setTimeout(function(){var el=document.getElementById('p-fil-st');if(el)el.value='_faturar';filtPed();},150)"><div class="si sib"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="sl">Pedidos a Faturar</div><div class="sv">${_pedFaturar}</div><div class="st ${_pedFaturar>0?'dn':'up'}">${_pedFaturar>0?'Clique para ver':'Em dia'}</div></div>
     <!-- 10. Processos a Faturar -->
