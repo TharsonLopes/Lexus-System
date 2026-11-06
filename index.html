@@ -509,7 +509,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-11-05-cancelados-box-1';
+const APP_BUILD='2026-11-06-corrige-salvamento-pedidos-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -1192,10 +1192,8 @@ async function mudarSt(id){
   aM('Alterar Status — '+id,`<p style="color:var(--cream3);margin-bottom:14px">Status atual: <strong>${labels[p.status]||p.status}</strong></p><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>`);
 }
 function safePed(p){
-  // Compute valor from itens for storage
-  var v=0;
-  if(p.itens&&p.itens.length)v=p.itens.reduce(function(s,i){return s+(parseFloat(i.pu)||0)*(parseFloat(i.qty)||0);},0);
-  if(!v&&p.valor)v=parseFloat(p.valor)||0;
+  // valor_venda e valor_comissao são colunas geradas pelo Supabase.
+  // Nunca devem ser enviadas no INSERT/UPSERT.
   return {
     id: p.id,
     cid: +p.cid||0,
@@ -1214,8 +1212,6 @@ function safePed(p){
     status_comissao:p.status_comissao||'prevista',
     valor_recebido:+p.valor_recebido||0,
     recebido_em:p.recebido_em||null,
-    valor_venda:v,
-    valor_comissao:Math.round((v*(Number.isFinite(Number(p.cpct))?Number(p.cpct):3.5)/100)*100)/100,
     deleted_at:p.deleted_at||null
   };
 }
