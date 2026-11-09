@@ -509,7 +509,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-11-09-reconciliacao-indicadores-1';
+const APP_BUILD='2026-11-09-reconciliacao-indicadores-2';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -814,10 +814,10 @@ function rDash(){
     var item=histPrev&&histPrev.mensal&&histPrev.mensal[m];
     return Array.isArray(item)?(+item[0]||0):0;
   });
-  // Comparação equivalente: somente pedidos com mês de comissão informado (faturados).
+  // Faturamento mensal: data real quando existe; competência somente no legado sem data.
   D.hist.at=Array.from({length:12},function(_,m){
     var px=String(ANO_AT)+'-'+String(m+1).padStart(2,'0');
-    return D.pedidos.filter(function(p){return pedidoFaturado(p)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(px);}).reduce(function(s,p){return s+cT(p);},0);
+    return D.pedidos.filter(function(p){return pedidoFaturado(p)&&mesFaturamento(p)===px;}).reduce(function(s,p){return s+cT(p);},0);
   });
   var mxComp=Math.max.apply(null,ant2025.concat(D.hist.at.slice(0,MES_AT+1)).concat([1]));
 
