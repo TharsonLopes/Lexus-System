@@ -509,14 +509,14 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-11-09-reconciliacao-indicadores-2';
+const APP_BUILD='2026-11-09-reconciliacao-financeira-3';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
 // ═══════════════════════════════════════════════════════
 
 const D={
-  produtos:[],clientes:[],pedidos:[],fornecedores:[],grupos:[],
+  produtos:[],clientes:[],pedidos:[],fornecedores:[],grupos:[],recebimentos:[],
   nxt:{p:1,c:1,f:1,ped:1,g:1},
   hist:{ant:[0,0,0,0,0,0,0,0,0,0,0,0],at:[0,0,0,0,0,0,0,0,0,0,0,0]},historicoAnual:[],
   cfg:{meta_mensal:150000,meta_vendas:200000,nome_exib:'Administrador'},
@@ -596,7 +596,7 @@ const cQtd=p=>{
   if(!p||p.status==='cancelado')return 0;
   return(p.itens||[]).reduce((s,i)=>s+(parseFloat(i.qty)||0),0);
 };
-const anoReferenciaPedido=p=>String((p&&p.data)||(p&&p.faturado_em)||(p&&p.competencia_comissao)||'').slice(0,4);
+const anoReferenciaPedido=p=>String((p&&p.competencia_comissao)||(p&&p.data)||(p&&p.faturado_em)||'').slice(0,4);
 const pedidoNoAno=(p,ano=ANO_AT)=>!p.deleted_at&&p.status!=='cancelado'&&anoReferenciaPedido(p)===String(ano);
 const pedidoFaturado=p=>!!p&&!p.deleted_at&&p.status!=='cancelado'&&(!!pedFatDate(p)||['faturado','entregue','pago'].includes(p.status));
 const comissaoRecebida=p=>!!p&&!p.deleted_at&&['recebida','conciliada'].includes(p.status_comissao)?(parseFloat(p.valor_recebido)||0):0;
@@ -832,8 +832,8 @@ function rDash(){
   // Total de Vendas: apenas pedidos PED- (entrados manualmente) + PROC- no ano
   var fatTotal=D.pedidos.filter(function(p){return pedidoNoAno(p);}).reduce(function(s,p){return s+cT(p);},0);
   var _stats=statsAnoVigente();
-  var _comPagaAno=D.pedidos.filter(function(p){return anoComissaoRecebida(p)===String(ANO_AT);}).reduce(function(s,p){return s+comissaoRecebida(p);},0);
-  var _comPagaMes=D.pedidos.filter(function(p){var d=String(p.recebido_em||p.competencia_comissao||'');return d.startsWith(pref);}).reduce(function(s,p){return s+comissaoRecebida(p);},0);
+  var _comPagaAno=D.recebimentos.filter(function(r){return r.status==='recebido'&&String(r.competencia||r.recebido_em||'').startsWith(String(ANO_AT));}).reduce(function(s,r){return s+(parseFloat(r.valor_recebido)||0);},0);
+  var _comPagaMes=D.recebimentos.filter(function(r){return r.status==='recebido'&&String(r.competencia||r.recebido_em||'').startsWith(pref);}).reduce(function(s,r){return s+(parseFloat(r.valor_recebido)||0);},0);
   var _pa={fat:_stats.fatAno,com:_comPagaAno};
   var _fatAteAtual=_stats.fM.slice(0,MES_AT+1).reduce(function(a,b){return a+b;},0),_nM=Math.max(1,MES_AT+1),_comMesAtual=_stats.cM[MES_AT]||0;var _mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][new Date().getMonth()];var _pm=planilhaMes(_mn);
   var _canceladosAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.status==='cancelado'&&anoReferenciaPedido(p)===String(ANO_AT);});
@@ -2425,8 +2425,9 @@ async function sbDelete(t,id){try{var r=await fetch(SB_URL+'/rest/v1/'+t+'?id=eq
 async function sbLoad(){
   try{
     var dF=await sbGet('forn'),dC=await sbGet('clientes'),dP=await sbGet('pedidos');
-    var dPr=await sbGet('produtos'),dG=await sbGet('grupos'),dH=await sbGet('hist'),dHA=await sbGet('historico_anual');
+    var dPr=await sbGet('produtos'),dG=await sbGet('grupos'),dH=await sbGet('hist'),dHA=await sbGet('historico_anual'),dR=await sbGet('recebimentos');
     if(dF&&dF.length)D.fornecedores=dF;
+    if(dR)D.recebimentos=dR;
     if(dC){D.clientes=dC;D.nxt.c=dC.length?Math.max.apply(null,dC.map(x=>+x.id||0))+1:1;}
     if(dP&&dP.length){
       D.pedidos=dP.map(function(p){
