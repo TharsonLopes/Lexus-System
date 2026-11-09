@@ -509,7 +509,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-11-06-corrige-salvamento-pedidos-1';
+const APP_BUILD='2026-11-09-reconciliacao-indicadores-1';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -598,7 +598,7 @@ const cQtd=p=>{
 };
 const anoReferenciaPedido=p=>String((p&&p.data)||(p&&p.faturado_em)||(p&&p.competencia_comissao)||'').slice(0,4);
 const pedidoNoAno=(p,ano=ANO_AT)=>!p.deleted_at&&p.status!=='cancelado'&&anoReferenciaPedido(p)===String(ano);
-const pedidoFaturado=p=>!!p&&!p.deleted_at&&['faturado','entregue','pago'].includes(p.status);
+const pedidoFaturado=p=>!!p&&!p.deleted_at&&p.status!=='cancelado'&&(!!pedFatDate(p)||['faturado','entregue','pago'].includes(p.status));
 const comissaoRecebida=p=>!!p&&!p.deleted_at&&['recebida','conciliada'].includes(p.status_comissao)?(parseFloat(p.valor_recebido)||0):0;
 const anoComissaoRecebida=p=>String((p&&p.recebido_em)||(p&&p.competencia_comissao)||'').slice(0,4);
 // Filtro padrão: exclui cancelados, inclui ocultos nos números
@@ -766,7 +766,7 @@ function rDash(){
   console.log("Render: rDash");
   const pref=`${ANO_AT}-${String(MES_AT+1).padStart(2,'0')}`;
   const pm=D.pedidos.filter(p=>!p.deleted_at&&p.data&&String(p.data).startsWith(pref)&&p.status!=='cancelado');
-  const fatM=D.pedidos.filter(function(p){return pedidoFaturado(p)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(pref);}).reduce(function(s,p){return s+cT(p);},0);
+  const fatM=D.pedidos.filter(function(p){return pedidoFaturado(p)&&mesFaturamento(p)===pref;}).reduce(function(s,p){return s+cT(p);},0);
   const compAtual=String(ANO_AT)+'-'+String(MES_AT+1).padStart(2,'0');
   const pedidosComMes=D.pedidos.filter(p=>!p.deleted_at&&pedCompetencia(p)===compAtual);
   const comMT=pedidosComMes.filter(p=>p.trib).reduce((s,p)=>s+cC(p),0);
@@ -838,11 +838,11 @@ function rDash(){
   var _fatAteAtual=_stats.fM.slice(0,MES_AT+1).reduce(function(a,b){return a+b;},0),_nM=Math.max(1,MES_AT+1),_comMesAtual=_stats.cM[MES_AT]||0;var _mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][new Date().getMonth()];var _pm=planilhaMes(_mn);
   var _canceladosAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.status==='cancelado'&&anoReferenciaPedido(p)===String(ANO_AT);});
   var _canceladosValor=_canceladosAno.reduce(function(total,p){return total+cTRegistrado(p);},0);
-  var _pedPend=D.pedidos.filter(function(p){return p.status==='aguardando'&&!isFastMalhas(p.fid);}).length;
-  var _pedFaturar=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&!isFastMalhas(p.fid);}).length;
-  var _procFaturar=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&isFastMalhas(p.fid);}).length;
-  var _pedFaturarVal=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&!isFastMalhas(p.fid);}).reduce(function(s,p){return s+cT(p);},0);
-  var _procFaturarVal=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&isFastMalhas(p.fid);}).reduce(function(s,p){return s+cT(p);},0);
+  var _pedPend=D.pedidos.filter(function(p){return p.status==='aguardando'&&!pedidoFaturado(p)&&!isFastMalhas(p.fid);}).length;
+  var _pedFaturar=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&!pedidoFaturado(p)&&!isFastMalhas(p.fid);}).length;
+  var _procFaturar=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&!pedidoFaturado(p)&&isFastMalhas(p.fid);}).length;
+  var _pedFaturarVal=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&!pedidoFaturado(p)&&!isFastMalhas(p.fid);}).reduce(function(s,p){return s+cT(p);},0);
+  var _procFaturarVal=D.pedidos.filter(function(p){return (p.status==='aguardando'||p.status==='em_producao')&&!pedidoFaturado(p)&&isFastMalhas(p.fid);}).reduce(function(s,p){return s+cT(p);},0);
   var _pipeTotal=_pedFaturarVal+_procFaturarVal;
   document.getElementById('content').innerHTML=`
 
@@ -876,7 +876,7 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
     <!-- 0. Total de Vendas Ano -->
     <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Total de Vendas no Ano — ${ANO_AT}</div><div class="sv">${fmt(fatTotal)}</div><div class="st up">Base reconciliada · Comissão 2026</div></div>
     <!-- 1. Faturamento Total ANO -->
-    <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento no Ano — ${ANO_AT}</div><div class="sv">${fmt(_pa.fat)}</div><div class="st up">Pedidos com mês a receber</div></div>
+    <div class="stat"><div class="si sig"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento no Ano — ${ANO_AT}</div><div class="sv">${fmt(_pa.fat)}</div><div class="st up">Pela data de faturamento; legado usa competência</div></div>
     <!-- 2. Média Mensal -->
     <div class="stat"><div class="si sib"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div><div class="sl">Média Mensal de Vendas</div><div class="sv">${fmt(fatTotal/_nM)}</div><div class="st neu">Total de vendas ÷ ${_nM} meses</div></div>
     <!-- 3. Comissão Total 2026 -->
@@ -1017,6 +1017,7 @@ function pedMeta(p){
 }
 function pedFatDate(p){if(p&&p.faturado_em)return String(p.faturado_em).slice(0,10);var m=String(p&&p.obs||'').match(/Faturamento\s*:\s*(\d{4}-\d{2}-\d{2})/i);return m?m[1]:'';}
 function pedCompetencia(p){if(p&&p.competencia_comissao)return String(p.competencia_comissao).slice(0,7);var mi=MESF.indexOf(p&&p.mes_com||'');if(mi<0)return'';var base=pedFatDate(p)||(p&&p.data)||String(ANO_AT)+'-01-01';return String(base).slice(0,4)+'-'+String(mi+1).padStart(2,'0');}
+function mesFaturamento(p){var d=pedFatDate(p);if(d)return d.slice(0,7);return p&&!p.deleted_at&&['faturado','entregue','pago'].includes(p.status)?pedCompetencia(p):'';}
 function fmtCompetencia(p){var c=typeof p==='string'?p:pedCompetencia(p);if(!c)return'—';var a=c.split('-');return MESF[(+a[1]||1)-1]+' / '+a[0];}
 var PED_VIEW_STATE=(function(){try{return JSON.parse(sessionStorage.getItem('lexus_ped_view')||'{}');}catch(e){return {};}})();
 function guardarVistaPedidos(v){
@@ -1310,7 +1311,7 @@ function atualizarTotaisItens(prefix){
 }
 
 function novoPed(itsPre){
-  const cliOpts=[...D.clientes].filter(c=>c.status!=='inativo').sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  const cliOpts=[...D.clientes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   const fornOpts=[...D.fornecedores].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(f=>`<option value="${f.id}">${f.nome}</option>`).join('');
   const prodOpts=[...D.produtos].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR')).map(p=>`<option value="${p.id}" data-un="${p.un||'un'}">${p.nome}${p.cod&&!String(p.cod).startsWith('XLS-')?' ('+p.cod+')':''}</option>`).join('');
   const it=Array.isArray(itsPre)&&itsPre.length?itsPre[0]:null;
@@ -1376,8 +1377,8 @@ async function confPed(){
   const ped={
     id,cid,fid,data,
     itens,
-    status:'aguardando',
-    confirmado:false,
+    status:fatDate?'faturado':'aguardando',
+    confirmado:!!fatDate,
     cpct:Number(document.getElementById('np-com').value),
     trib:document.getElementById('np-trib').value==='1',
     obs,
@@ -2356,8 +2357,8 @@ var SB_H={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bea
 function statsAnoVigente(){
   var fM=Array(12).fill(0),cM=Array(12).fill(0);
   var porRep={};
-  D.pedidos.filter(function(p){return pedidoFaturado(p)&&pedFatDate(p)&&String(pedFatDate(p)).startsWith(String(ANO_AT));}).forEach(function(p){
-    var mi=(+pedFatDate(p).slice(5,7)||0)-1;if(mi<0)return;
+  D.pedidos.filter(function(p){return pedidoFaturado(p)&&mesFaturamento(p).startsWith(String(ANO_AT));}).forEach(function(p){
+    var mi=(+mesFaturamento(p).slice(5,7)||0)-1;if(mi<0)return;
     fM[mi]+=cT(p);
   });
   D.pedidos.filter(function(p){var co=pedCompetencia(p);return !p.deleted_at&&p.status!=='cancelado'&&co&&co.startsWith(String(ANO_AT));}).forEach(function(p){
@@ -2366,7 +2367,7 @@ function statsAnoVigente(){
     if(!porRep[p.fid])porRep[p.fid]={fat:Array(12).fill(0),com:Array(12).fill(0)};
     porRep[p.fid].fat[mi]+=v;porRep[p.fid].com[mi]+=c;
   });
-  var fatAno=D.pedidos.filter(function(p){return pedidoNoAno(p)&&pedidoFaturado(p);}).reduce(function(a,p){return a+cT(p);},0);
+  var fatAno=D.pedidos.filter(function(p){return pedidoFaturado(p)&&mesFaturamento(p).startsWith(String(ANO_AT));}).reduce(function(a,p){return a+cT(p);},0);
   var comAno=D.pedidos.filter(function(p){return anoComissaoRecebida(p)===String(ANO_AT);}).reduce(function(a,p){return a+comissaoRecebida(p);},0);
   var nMfat=fM.filter(function(v){return v>0;}).length||1;
   var nMcom=cM.filter(function(v){return v>0;}).length||1;
