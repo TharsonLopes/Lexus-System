@@ -509,7 +509,7 @@ var PLANILHA={};
 
 
 'use strict';
-const APP_BUILD='2026-11-09-reconciliacao-financeira-3';
+const APP_BUILD='2026-11-09-reconciliacao-financeira-4';
 window.LEXUS_PAGE='dash';
 // ═══════════════════════════════════════════════════════
 //  PERSISTÊNCIA
@@ -834,7 +834,8 @@ function rDash(){
   var _stats=statsAnoVigente();
   var _comPagaAno=D.recebimentos.filter(function(r){return r.status==='recebido'&&String(r.competencia||r.recebido_em||'').startsWith(String(ANO_AT));}).reduce(function(s,r){return s+(parseFloat(r.valor_recebido)||0);},0);
   var _comPagaMes=D.recebimentos.filter(function(r){return r.status==='recebido'&&String(r.competencia||r.recebido_em||'').startsWith(pref);}).reduce(function(s,r){return s+(parseFloat(r.valor_recebido)||0);},0);
-  var _pa={fat:_stats.fatAno,com:_comPagaAno};
+  var _comLiquidaAno=D.pedidos.filter(function(p){return pedidoNoAno(p);}).reduce(function(s,p){return s+cC(p);},0);
+  var _pa={fat:_stats.fatAno,com:_comLiquidaAno};
   var _fatAteAtual=_stats.fM.slice(0,MES_AT+1).reduce(function(a,b){return a+b;},0),_nM=Math.max(1,MES_AT+1),_comMesAtual=_stats.cM[MES_AT]||0;var _mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][new Date().getMonth()];var _pm=planilhaMes(_mn);
   var _canceladosAno=D.pedidos.filter(function(p){return !p.deleted_at&&p.status==='cancelado'&&anoReferenciaPedido(p)===String(ANO_AT);});
   var _canceladosValor=_canceladosAno.reduce(function(total,p){return total+cTRegistrado(p);},0);
@@ -880,7 +881,7 @@ ${metaVendMes>0?`<div class="meta-wrap" style="margin-bottom:10px;border-left:3p
     <!-- 2. Média Mensal -->
     <div class="stat"><div class="si sib"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div><div class="sl">Média Mensal de Vendas</div><div class="sv">${fmt(fatTotal/_nM)}</div><div class="st neu">Total de vendas ÷ ${_nM} meses</div></div>
     <!-- 3. Comissão Total 2026 -->
-    <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Recebida ${ANO_AT}</div><div class="sv" style="font-size:17px">${fmt(_pa.com)}</div><div class="st up">Somente lançadas como recebidas</div></div>
+    <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div class="sl">Comissão Líquida Total ${ANO_AT}</div><div class="sv" style="font-size:17px">${fmt(_pa.com)}</div><div class="st up">Recebida lançada: ${fmt(_comPagaAno)}</div></div>
     <!-- 4. Faturamento do Mês -->
     <div class="stat"><div class="si sigo"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sl">Faturamento do Mês — ${MESF[MES_AT]}</div><div class="sv">${fmt(fatM)}</div><div class="st up">Pela data de faturamento</div></div>
     <!-- 5. Comissão do Mês -->
